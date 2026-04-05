@@ -51,6 +51,19 @@ export default function App() {
     }
   }, [userName, currentGroup]);
 
+  // handle user logout
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    localStorage.removeItem("إسم_الحساب");
+    if (error) {
+      console.error("Error:", error.message);
+    } else {
+      // جيت هاب أو الموقع هيحس بتغيير الـ Auth state ويرجعك للـ Login
+      // لو حابب تتأكد، ضيف السطر ده:
+      window.location.reload();
+    }
+  };
+
   useEffect(() => {
     fetchData();
     const sub = supabase
@@ -199,6 +212,7 @@ export default function App() {
             setLoginNameInput("");
           } else alert("لا توجد ختمة");
         }}
+        onLogout={handleLogout}
       />
     );
   //! group page
