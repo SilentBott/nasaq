@@ -31,13 +31,14 @@ export default function KhatmahModal({
   const { fontSize, getUniqueVersesCount } = useContext(FontContext);
   if (!selected && !quickRegister) return null;
 
-  const sLogs = selected ? logs.filter((l) => l.surah_id === selected.id) : [];
+  const sLogs = selected
+    ? (logs || []).filter((l) => l.surah_id === selected.id)
+    : [];
   const uniqueCount = selected ? getUniqueVersesCount(sLogs, selected.ayat) : 0;
   const isSuraDone =
     selected &&
     (sLogs.some((l) => l.status === "completed") ||
       uniqueCount >= selected.ayat);
-
   return (
     <div
       className="fixed inset-0 z-50 bg-black/80 flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm"

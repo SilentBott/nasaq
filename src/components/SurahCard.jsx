@@ -4,15 +4,14 @@ import { FontContext } from "../App";
 
 export default function SurahCard({
   s,
-  logs,
+  logs = [],
   userName,
   onStartPress,
   onEndPress,
   onClick,
 }) {
   const { fontSize, getUniqueVersesCount } = useContext(FontContext);
-  const sLogs = logs.filter((l) => l.surah_id === s.id);
-
+  const sLogs = (logs || []).filter((l) => l.surah_id === s.id);
   const uniqueClaimed = getUniqueVersesCount(sLogs, s.ayat);
   const isDone =
     sLogs.some((l) => l.status === "completed") || uniqueClaimed >= s.ayat;

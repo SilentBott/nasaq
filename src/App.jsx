@@ -181,26 +181,23 @@ export default function App() {
   };
 
   //! choose name page
-  if (!userName)
-    return (
-      <Auth
-        loginNameInput={loginNameInput}
-        setLoginNameInput={setLoginNameInput}
-        onLogin={() => {
-          if (loginNameInput) {
-            localStorage.setItem("إسم_الحساب", loginNameInput);
-            setUserName(loginNameInput);
-            setLoginNameInput("");
-          }
-        }}
-      />
-    );
-
   return (
     <FontContext.Provider
       value={{ fontSize, setFontSize, getUniqueVersesCount }}
     >
-      {!currentGroup ? (
+      {!userName ? (
+        <Auth
+          loginNameInput={loginNameInput}
+          setLoginNameInput={setLoginNameInput}
+          onLogin={() => {
+            if (loginNameInput) {
+              localStorage.setItem("إسم_الحساب", loginNameInput);
+              setUserName(loginNameInput);
+              setLoginNameInput("");
+            }
+          }}
+        />
+      ) : !currentGroup ? (
         //! Dashboard page
         <Dashboard
           userName={userName}
@@ -288,11 +285,11 @@ export default function App() {
             <button
               onClick={() => setQuickRegister(true)}
               style={{ fontSize: `${fontSize}px` }}
-              className="text-white text-lg font-bold underline decoration-white underline-offset-8 hover:text-amber-400 hover:decoration-amber-400 transition-all"
+              className="text-white font-bold underline decoration-white underline-offset-8 hover:text-amber-400 hover:decoration-amber-400 transition-all shrink-0"
             >
               تسجيل سريع
             </button>
-            <div className="flex flex-wrap flex-row-reverse justify-center gap-2">
+            <div className="flex flex-wrap flex-row-reverse gap-2 justify-start">
               {[
                 { id: "all", label: "كلّ السور" },
                 { id: "completed", label: "التي تم إنجازها" },
@@ -302,13 +299,17 @@ export default function App() {
                 <button
                   key={t.id}
                   onClick={() => setFilter(t.id)}
-                  style={{ fontSize: `${fontSize - 6}px` }}
-                  className={`px-4 py-1.5 rounded-full text-[12px] font-bold border transition-all ${filter === t.id ? "bg-amber-500 border-amber-500 text-emerald-950" : "bg-emerald-900/30 border-emerald-800 text-emerald-500"}`}
+                  style={{ fontSize: `${Math.max(10, fontSize - 6)}px` }}
+                  className={`px-4 py-1.5 rounded-full font-bold border transition-all whitespace-nowrap ${
+                    filter === t.id
+                      ? "bg-amber-500 border-amber-500 text-emerald-950"
+                      : "bg-emerald-900/30 border-emerald-800 text-emerald-500"
+                  }`}
                 >
                   {t.label}
                 </button>
               ))}
-            </div>
+            </div>{" "}
           </div>
 
           <main
@@ -331,7 +332,7 @@ export default function App() {
               <SurahCard
                 key={s.id}
                 s={s}
-                logs={logs}
+                logs={logs || []}
                 userName={userName}
                 onStartPress={handleLongPress}
                 onEndPress={() => clearTimeout(pressTimer.current)}
@@ -354,8 +355,8 @@ export default function App() {
             onDeleteAll={deleteSurahLogs}
             getOccupiedVerses={(surahId) => {
               const occupied = new Set();
-              logs
-                .filter((l) => l.surah_id === surahId)
+              (logs || [])
+                .filter((l) => l.surah_id === surahId) // أضفنا الأقواس والـ || هنا
                 .forEach((log) => {
                   for (let i = log.verse_start; i <= log.verse_end; i++)
                     occupied.add(i);
