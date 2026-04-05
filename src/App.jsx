@@ -6,7 +6,7 @@ import Dashboard from "./components/Dashboard";
 import SurahCard from "./components/SurahCard";
 import KhatmahModal from "./components/KhatmahModal";
 import { ArrowLeft, LogOut } from "lucide-react";
-
+//
 export const FontContext = createContext();
 
 export default function App() {
@@ -287,6 +287,7 @@ export default function App() {
           <div className="flex flex-col items-center py-6 gap-4">
             <button
               onClick={() => setQuickRegister(true)}
+              style={{ fontSize: `${fontSize}px` }}
               className="text-white text-lg font-bold underline decoration-white underline-offset-8 hover:text-amber-400 hover:decoration-amber-400 transition-all"
             >
               تسجيل سريع
@@ -301,6 +302,7 @@ export default function App() {
                 <button
                   key={t.id}
                   onClick={() => setFilter(t.id)}
+                  style={{ fontSize: `${fontSize - 6}px` }}
                   className={`px-4 py-1.5 rounded-full text-[12px] font-bold border transition-all ${filter === t.id ? "bg-amber-500 border-amber-500 text-emerald-950" : "bg-emerald-900/30 border-emerald-800 text-emerald-500"}`}
                 >
                   {t.label}

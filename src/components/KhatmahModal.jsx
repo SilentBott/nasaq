@@ -1,3 +1,4 @@
+//! قائمة اللي بتظهر عند الضغط علي السوره
 import { useContext } from "react";
 import { FontContext } from "../App";
 import {
@@ -166,7 +167,60 @@ export default function KhatmahModal({
                                 className="bg-emerald-950 text-white"
                                 disabled={occupied.has(num) && !range.isSaved}
                               >
-                                {num}
+                                {num === 1
+                                  ? `أوّل آية (1)`
+                                  : num === selected.ayat
+                                    ? `آخر السورة (${selected.ayat})`
+                                    : num}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="text-emerald-800 font-black text-xs">
+                          :
+                        </div>
+
+                        <div className="flex-1 relative group">
+                          <select
+                            value={range.end}
+                            style={{
+                              fontSize: `${Math.max(12, fontSize - 2)}px`,
+                            }}
+                            onChange={(e) => {
+                              const r = [...vRanges];
+                              r[index].end = parseInt(e.target.value);
+                              r[index].isActive = true;
+                              setVRanges(r);
+                            }}
+                            disabled={range.isSaved}
+                            className={`w-full bg-emerald-900/40 border border-emerald-800 rounded-xl py-2.5 px-2 text-center font-bold appearance-none outline-none ${range.isSaved ? "text-emerald-500" : "text-amber-200"}`}
+                          >
+                            <option value="0" disabled>
+                              إلى
+                            </option>
+                            {/* الخيار المطلوب تحت "إلى" مباشرة */}
+                            {!range.isSaved && (
+                              <option
+                                value={selected.ayat}
+                                className="bg-emerald-900 text-amber-400"
+                              >
+                                آخر السورة ({selected.ayat})
+                              </option>
+                            )}
+                            {Array.from(
+                              { length: selected.ayat - range.start + 1 },
+                              (_, i) => i + range.start,
+                            ).map((num) => (
+                              <option
+                                key={num}
+                                value={num}
+                                className="bg-emerald-950 text-white"
+                                disabled={occupied.has(num) && !range.isSaved}
+                              >
+                                {num === selected.ayat
+                                  ? `آخر السورة (${selected.ayat})`
+                                  : num}
                               </option>
                             ))}
                           </select>
