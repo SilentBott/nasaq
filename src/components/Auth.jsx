@@ -3,6 +3,7 @@ import { FontContext } from "../App";
 import { Moon } from "lucide-react";
 
 export default function Auth({ loginNameInput, setLoginNameInput, onLogin }) {
+  //! [ID: 21] سحب الـ fontSize داخل صفحة تسجيل الدخول بأمان
   const { fontSize } = useContext(FontContext);
 
   return (
@@ -11,7 +12,7 @@ export default function Auth({ loginNameInput, setLoginNameInput, onLogin }) {
         <Moon className="w-16 h-16 text-amber-400 mx-auto mb-6" />
         <h1
           style={{ fontSize: `${fontSize + 12}px` }}
-          className="font-bold text-amber-400 mb-8 font-serif"
+          className="text-4xl font-bold text-amber-400 mb-8 font-serif transition-all"
         >
           نَسَق
         </h1>
@@ -25,7 +26,7 @@ export default function Auth({ loginNameInput, setLoginNameInput, onLogin }) {
         <button
           onClick={onLogin}
           style={{ fontSize: `${Math.max(16, fontSize - 2)}px` }}
-          className="w-full bg-amber-500 text-emerald-950 font-black py-4 rounded-xl active:scale-95 transition-all shadow-lg"
+          className="w-full bg-amber-500 text-emerald-950 font-black py-4 rounded-xl active:scale-95 transition-all text-xl"
         >
           ابدأ الآن
         </button>

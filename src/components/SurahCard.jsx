@@ -1,75 +1,65 @@
-import { useContext } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { useContext, useMemo } from "react";
 import { FontContext } from "../App";
+import { CheckCircle2 } from "lucide-react";
 
-export default function SurahCard({
-  s,
-  logs = [],
-  userName,
-  onStartPress,
-  onEndPress,
-  onClick,
-}) {
-  const { fontSize, getUniqueVersesCount } = useContext(FontContext);
+export default function SurahCard({ s, logs, userName, onClick, ...props }) {
+  const { theme, getUniqueVersesCount } = useContext(FontContext);
+  if (!s) return null; // //! test حماية صخرية
+
   const sLogs = (logs || []).filter((l) => l.surah_id === s.id);
-  const uniqueClaimed = getUniqueVersesCount(sLogs, s.ayat);
-  const isDone =
-    sLogs.some((l) => l.status === "completed") || uniqueClaimed >= s.ayat;
+  const progress = getUniqueVersesCount(sLogs);
+  const isCompleted =
+    progress >= (s?.ayat || 0) || sLogs.some((l) => l.status === "completed");
 
-  const finishers = [...new Set(sLogs.map((l) => l.user_name))];
-  const readers = sLogs.filter((l) => l.status === "reading");
-  const progress = Math.min((uniqueClaimed / s.ayat) * 100, 100);
+  //! test [ID: 04] ترتيب المخلصين حسب عدد الآيات المنجزة فعلياً
+  const finishers = useMemo(() => {
+    if (!isCompleted) return null;
+    const userStats = {};
+    sLogs.forEach((l) => {
+      const count = l.verse_end - l.verse_start + 1 || 0;
+      userStats[l.user_name] = (userStats[l.user_name] || 0) + count;
+    });
+    return Object.entries(userStats)
+      .sort((a, b) => b[1] - a[1])
+      .map((entry) => entry[0]);
+  }, [sLogs, isCompleted]);
 
   return (
     <button
-      onMouseDown={() => onStartPress(s)}
-      onMouseUp={onEndPress}
-      onTouchStart={() => onStartPress(s)}
-      onTouchEnd={onEndPress}
       onClick={() => onClick(s)}
-      className={`p-4 pb-6 rounded-2xl border transition-all active:scale-95 relative overflow-hidden shadow-sm ${isDone ? "bg-emerald-800/40 border-emerald-500 shadow-emerald-900/40" : "bg-emerald-900/20 border-emerald-800 hover:border-emerald-700"}`}
+      {...props}
+      className={`relative p-6 pb-8 rounded-[2.5rem] border-2 transition-all active:scale-95 group overflow-hidden ${isCompleted ? "border-emerald-500 bg-emerald-500/10" : theme === "dark" ? "bg-emerald-900/10 border-emerald-800/30" : "bg-white border-slate-200 shadow-sm"}`}
     >
-      <div
-        style={{ fontSize: `${fontSize}px` }}
-        className="font-bold mb-1 font-serif text-white"
-      >
-        {s.name_ar}
-      </div>
-      <div
-        style={{ fontSize: `${Math.max(8, fontSize - 8)}px` }}
-        className="text-emerald-600 mb-2 font-mono uppercase tracking-widest"
-      >
-        آياتها: {s.ayat}
-      </div>
-      <div className="space-y-1">
-        {isDone ? (
-          <div
-            style={{ fontSize: `${Math.max(8, fontSize - 9)}px` }}
-            className="text-emerald-400 font-bold bg-emerald-500/10 py-1 rounded px-1 break-words"
-          >
-            ختمها: {finishers.join("، ")}
+      <div className="flex flex-col items-center gap-3">
+        <span className="text-[10px] font-black opacity-30 uppercase tracking-widest">
+          {s.id}
+        </span>
+        <h3 className="font-black font-serif text-xl text-amber-500 group-hover:scale-110 transition-transform">
+          {s.name_ar}
+        </h3>
+        {isCompleted ? (
+          <div className="flex flex-col items-center gap-1 animate-in zoom-in duration-500">
+            <CheckCircle2 size={24} className="text-emerald-500" />
+            <span className="text-[10px] font-black text-emerald-600/80 leading-tight">
+              ختمها: {finishers?.slice(0, 2).join("، ")}
+              {finishers?.length > 2 ? ".." : ""}
+            </span>
           </div>
         ) : (
-          readers.map((r, i) => (
-            <div
-              key={i}
-              style={{ fontSize: `${Math.max(8, fontSize - 9)}px` }}
-              className="text-amber-500 truncate bg-amber-500/5 rounded px-1.5 py-0.5 border border-amber-500/10 font-bold"
-            >
-              {r.user_name} ({r.verse_start}-{r.verse_end})
-            </div>
-          ))
+          <div className="h-6 flex items-center">
+            <span className="text-[10px] font-black text-emerald-500/50">
+              {progress}/{s?.ayat}
+            </span>
+          </div>
         )}
       </div>
-      {isDone && (
-        <CheckCircle2 className="absolute top-2 left-2 w-3 h-3 text-emerald-400" />
-      )}
-      {!isDone && progress > 0 && (
+      {/* //! test Progress Bar مدمج أسفل الكارت بلملي */}
+      <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-200/10 overflow-hidden">
         <div
-          className="absolute bottom-0 left-0 h-1.5 bg-emerald-500/50 shadow-[0_0_8px_rgba(16,185,129,0.3)] transition-all duration-700"
-          style={{ width: `${progress}%` }}
+          className="bg-emerald-500 h-full transition-all duration-1000 shadow-[0_0_8px_rgba(16,185,129,0.6)]"
+          style={{ width: `${(progress / (s?.ayat || 1)) * 100}%` }}
         />
-      )}
+      </div>
     </button>
   );
 }

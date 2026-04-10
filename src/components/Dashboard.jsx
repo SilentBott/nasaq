@@ -1,239 +1,266 @@
 import { useState, useContext } from "react";
 import { FontContext } from "../App";
-import { User, Users, ChevronDown, Plus, LogOut, X, Minus } from "lucide-react";
+import {
+  User,
+  Users,
+  ChevronDown,
+  LogOut,
+  X,
+  Minus,
+  Plus,
+  Moon,
+  Sun,
+  Settings,
+  Flame,
+  RefreshCw,
+  Highlighter,
+  Layers,
+} from "lucide-react";
 
 export default function Dashboard({
   userName,
   myKhatmats,
   setcurrentGroup,
-  newKhatmahName,
-  setNewKhatmahName,
-  onCreate,
-  joinInput,
-  setJoinInput,
-  onJoin,
   onLogout,
+  onCreate,
+  onJoin,
 }) {
-  const { fontSize, setFontSize } = useContext(FontContext);
+  const {
+    fontSize,
+    setFontSize,
+    theme,
+    setTheme,
+    streak,
+    verseViewMode,
+    setVerseViewMode,
+    riwaya,
+    setRiwaya,
+    highlightMode,
+    setHighlightMode,
+  } = useContext(FontContext);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [jInp, setJInp] = useState("");
+  const [nInp, setNInp] = useState("");
+
+  const riwayas = ["Hafs", "Warsh", "Qaloun", "Douri", "Sousi", "Shuba"];
+  const riwayaAr = {
+    Hafs: "حفص عن عاصم",
+    Warsh: "ورش عن نافع",
+    Qaloun: "قالون عن نافع",
+    Douri: "الدوري عن أبي عمرو",
+    Sousi: "السوسي عن أبي عمرو",
+    Shuba: "شعبة عن عاصم",
+  };
+  const hModes = ["text", "row"];
+  const hModesAr = { text: "سطر", row: "كل" };
+  const vModes = ["num", "text", "both"];
+  const vModesAr = { num: "رقم", text: "نص", both: "الـ2" };
 
   return (
-    <div className="min-h-screen bg-emerald-950 text-white p-6 text-right">
-      <header className="max-w-2xl mx-auto flex flex-row-reverse justify-between items-center mb-12">
-        <h1 className="text-2xl font-bold text-amber-400 font-serif">نَسَق</h1>
-
+    <div className="p-6 text-right max-w-2xl mx-auto">
+      <header className="flex flex-row-reverse justify-between items-center mb-12">
+        <h1 className="text-4xl font-black text-amber-500 font-serif tracking-tighter">
+          نَسَق
+        </h1>
         <div className="flex flex-row-reverse items-center gap-3">
+          {streak > 0 && (
+            <div className="flex items-center gap-1.5 px-4 py-2 bg-orange-500/10 border border-orange-500/20 rounded-full text-orange-500 shadow-inner">
+              <Flame size={20} fill="currentColor" />{" "}
+              <span className="font-black text-sm">{streak}</span>
+            </div>
+          )}
           <button
             onClick={onLogout}
-            className="p-2 rounded-full bg-emerald-900/50 hover:bg-red-500/20 text-emerald-500 hover:text-red-400 border border-emerald-800 transition-all duration-200"
-            title="تسجيل الخروج"
+            className={`p-3 rounded-full border dark:bg-red-500/10 dark:text-red-500 dark:border-red-500/20 bg-white text-slate-400`}
           >
-            <LogOut size={16} />
+            <LogOut size={20} />
           </button>
-
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className="bg-emerald-900 px-4 py-2 rounded-full border border-emerald-800 flex flex-row-reverse items-center gap-2 hover:border-amber-500/50 transition-all"
+            className="dark:bg-emerald-900/20 bg-white shadow-sm px-5 py-3 rounded-full border flex flex-row-reverse items-center gap-2 hover:scale-105 transition-all"
           >
-            <User className="w-3 h-3 text-amber-500" />
-            <span
-              style={{ fontSize: `${Math.max(10, fontSize - 6)}px` }}
-              className="font-medium text-emerald-500"
-            >
-              {userName}
-            </span>
+            <Settings size={18} className="text-amber-500" />
+            <span className="font-black opacity-60 text-xs">الإعدادات</span>
           </button>
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto space-y-4">
-        {/* ختمتي الشخصية */}
+      <div className="space-y-5">
         <button
           onClick={() => setcurrentGroup({ id: null, name: "ختمتي الشخصية" })}
-          className="w-full bg-emerald-900/40 border-2 border-amber-500/20 p-6 rounded-3xl flex flex-row-reverse justify-between items-center hover:border-amber-500/50 transition-all group"
+          className={`w-full ${theme === "dark" ? "bg-emerald-900/10 border-emerald-800" : "bg-white border-slate-200"} border-2 p-8 rounded-[3rem] flex flex-row-reverse justify-between items-center group active:scale-95 shadow-sm`}
         >
-          <div className="flex flex-row-reverse items-center gap-4 text-right">
-            <div className="bg-amber-500/10 p-3 rounded-2xl group-hover:bg-amber-500/20">
+          <div className="flex flex-row-reverse items-center gap-4">
+            <div className="bg-amber-500/10 p-5 rounded-3xl">
               <User className="text-amber-500" />
             </div>
             <div>
-              <h3 style={{ fontSize: `${fontSize}px` }} className="font-bold">
-                ختمتي الشخصية
-              </h3>
-              <p
-                style={{ fontSize: `${Math.max(10, fontSize - 8)}px` }}
-                className="text-emerald-600 mt-1"
-              >
-                خاصة بك فقط
+              <h3 className="font-black font-serif text-lg">ختمتي الشخصية</h3>
+              <p className="text-emerald-600 text-xs font-bold uppercase font-mono">
+                riwaya: {riwayaAr[riwaya]}
               </p>
             </div>
           </div>
-          <ChevronDown className="rotate-90 text-emerald-800" />
+          <ChevronDown className="rotate-90 text-slate-300" />
         </button>
-
-        {/* الختمات المشتركة */}
-        {myKhatmats.map((k) => (
+        {myKhatmats?.map((k) => (
           <button
             key={k.id}
             onClick={() => setcurrentGroup(k)}
-            className="w-full bg-emerald-900/20 border border-emerald-800 p-6 rounded-3xl flex flex-row-reverse justify-between items-center hover:bg-emerald-900/40 transition-all"
+            className={`w-full ${theme === "dark" ? "bg-emerald-900/5 border-emerald-800/50" : "bg-white border-slate-100"} border p-8 rounded-[3rem] flex flex-row-reverse justify-between items-center group active:scale-95 shadow-sm`}
           >
-            <div className="flex flex-row-reverse items-center gap-4 text-right">
-              <div className="bg-emerald-800/50 p-3 rounded-2xl">
-                <Users className="text-emerald-400" />
+            <div className="flex flex-row-reverse items-center gap-4">
+              <div className="bg-emerald-500/5 p-5 rounded-3xl">
+                <Users className="text-emerald-500" />
               </div>
               <div>
-                <h3 style={{ fontSize: `${fontSize}px` }} className="font-bold">
-                  {k.name}
-                </h3>
-                <p
-                  style={{ fontSize: `${Math.max(10, fontSize - 10)}px` }}
-                  className="text-emerald-700"
-                >
-                  بواسطة: {k.creator_name}
+                <h3 className="font-black font-serif text-lg">{k.name}</h3>
+                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">
+                  by: {k.creator_name}
                 </p>
               </div>
             </div>
-            <ChevronDown className="rotate-90 text-emerald-800" />
+            <ChevronDown className="rotate-90 text-slate-300" />
           </button>
         ))}
 
-        <hr className="border-emerald-900 my-8" />
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* انضمام لختمة */}
-          <div className="bg-emerald-900/10 border border-dashed border-emerald-800 p-4 rounded-3xl">
-            <h4
-              style={{ fontSize: `${Math.max(10, fontSize - 8)}px` }}
-              className="font-bold text-emerald-600 mb-3 text-center uppercase tracking-wider"
-            >
-              انضمام لختمة
-            </h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-12">
+          <div className="dark:bg-emerald-900/5 bg-white border border-dashed p-7 rounded-[2.5rem] border-inherit shadow-sm">
             <input
-              value={joinInput}
-              onChange={(e) => setJoinInput(e.target.value)}
+              value={jInp}
+              onKeyDown={(e) => e.key === "Enter" && onJoin(jInp)}
+              onChange={(e) => setJInp(e.target.value)}
               placeholder="اسم الختمة بالضبط"
-              style={{ fontSize: `${Math.max(12, fontSize - 6)}px` }}
-              className="w-full bg-emerald-950 border border-emerald-800 rounded-xl px-3 py-2 mb-2 text-center outline-none focus:border-amber-500 text-white"
+              className="w-full bg-transparent border-b border-emerald-800/20 mb-6 p-2 text-center outline-none font-black text-sm"
             />
             <button
-              onClick={onJoin}
-              style={{ fontSize: `${Math.max(12, fontSize - 4)}px` }}
-              className="w-full bg-amber-500 text-emerald-950 py-2 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-amber-400 transition-colors"
+              onClick={() => onJoin(jInp)}
+              className="w-full bg-amber-500 text-emerald-950 py-4 rounded-2xl font-black text-xs uppercase shadow-lg"
             >
-              <Users className="w-4 h-4" /> انضمام
+              انضمام
             </button>
           </div>
-
-          {/* إنشاء ختمة جديدة */}
-          <div className="bg-emerald-900/10 border border-dashed border-emerald-800 p-4 rounded-3xl">
-            <h4
-              style={{ fontSize: `${Math.max(10, fontSize - 8)}px` }}
-              className="font-bold text-emerald-600 mb-3 text-center uppercase tracking-wider"
-            >
-              إنشاء ختمة جديدة
-            </h4>
+          <div className="dark:bg-emerald-900/5 bg-white border border-dashed p-7 rounded-[2.5rem] border-inherit shadow-sm">
             <input
-              value={newKhatmahName}
-              onChange={(e) => setNewKhatmahName(e.target.value)}
-              placeholder="اسم المسجد / العائلة"
-              style={{ fontSize: `${Math.max(12, fontSize - 6)}px` }}
-              className="w-full bg-emerald-950 border border-emerald-800 rounded-xl px-3 py-2 mb-2 text-center outline-none focus:border-amber-500 text-white"
+              value={nInp}
+              onKeyDown={(e) => e.key === "Enter" && onCreate(nInp)}
+              onChange={(e) => setNInp(e.target.value)}
+              placeholder="اسم مجموعة جديدة"
+              className="w-full bg-transparent border-b border-emerald-800/20 mb-6 p-2 text-center outline-none font-black text-sm"
             />
             <button
-              onClick={onCreate}
-              style={{ fontSize: `${Math.max(12, fontSize - 4)}px` }}
-              className="w-full bg-emerald-800 text-white py-2 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors"
+              onClick={() => onCreate(nInp)}
+              className="w-full bg-emerald-700 text-white py-4 rounded-2xl font-black text-xs uppercase shadow-lg"
             >
-              <Plus className="w-4 h-4" /> إنشاء
+              إنشاء
             </button>
           </div>
         </div>
       </div>
 
-      {/* نافذة الإعدادات */}
       {isSettingsOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm"
-          onClick={(e) =>
-            e.target === e.currentTarget && setIsSettingsOpen(false)
-          }
+          className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-md flex items-center justify-center p-4"
+          onClick={() => setIsSettingsOpen(false)}
         >
-          <div className="bg-emerald-950 w-full max-w-[380px] rounded-[2.5rem] border border-emerald-800 p-8 shadow-2xl animate-in fade-in zoom-in duration-200">
-            <div className="flex justify-between items-center mb-8">
+          <div
+            className={`${theme === "dark" ? "bg-[#04120a] border-emerald-900" : "bg-white border-slate-200"} border-2 p-10 rounded-[3.5rem] w-full max-w-md shadow-2xl animate-in zoom-in`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-10 px-2">
               <button
                 onClick={() => setIsSettingsOpen(false)}
-                className="p-1.5 bg-emerald-900/50 rounded-full text-emerald-700 hover:text-red-400 transition-colors"
+                className={`p-3 rounded-full transition-all ${theme === "dark" ? "bg-emerald-900/40 text-emerald-400" : "bg-slate-100 text-slate-400"}`}
               >
-                <X className="w-5 h-5" />
+                <X size={24} />
               </button>
-              <h2 className="text-xl font-bold text-amber-400 font-serif">
-                إعدادات نَسَق
+              <h2 className="text-2xl font-black text-amber-500 font-serif">
+                الإعدادات
               </h2>
             </div>
-
-            <div className="space-y-8 text-right">
-              <div className="bg-emerald-900/20 p-4 rounded-2xl border border-emerald-800">
-                <div
-                  style={{ fontSize: "10px" }}
-                  className="text-emerald-700 font-bold uppercase mb-1 tracking-widest"
+            <div className="space-y-6">
+              <div className="p-5 dark:bg-emerald-900/40 bg-slate-50 rounded-3xl border border-inherit text-center">
+                <span className="text-[9px] font-black opacity-40 uppercase block mb-3 tracking-widest">
+                  الرواية الحالية
+                </span>
+                <button
+                  onClick={() =>
+                    setRiwaya(
+                      riwayas[(riwayas.indexOf(riwaya) + 1) % riwayas.length],
+                    )
+                  }
+                  className="w-full bg-amber-500 text-emerald-950 py-3 rounded-2xl font-black text-[11px] shadow-md transition-all active:scale-95"
                 >
-                  الإسم
-                </div>
-                <div
-                  style={{ fontSize: "18px" }}
-                  className="font-bold text-white"
-                >
-                  {userName}
-                </div>
+                  <RefreshCw size={14} className="inline ml-1" />{" "}
+                  {riwayaAr[riwaya]}
+                </button>
               </div>
-
-              <div className="bg-emerald-900/20 p-4 rounded-2xl border border-emerald-800">
-                <div
-                  style={{ fontSize: "10px" }}
-                  className="text-emerald-700 font-bold uppercase mb-4 tracking-widest text-center"
-                >
-                  حجم الخط (نسبي)
-                </div>
-                <div className="flex items-center justify-between mb-6">
-                  <button
-                    onClick={() => setFontSize((f) => Math.max(12, f - 2))}
-                    className="p-3 bg-emerald-800 rounded-xl text-white hover:bg-emerald-700 transition-colors"
-                  >
-                    <Minus className="w-5 h-5" />
-                  </button>
-                  <span className="text-2xl font-bold text-amber-400 font-mono">
-                    {fontSize}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-4 dark:bg-emerald-900/20 bg-slate-50 rounded-2xl border border-inherit text-center flex flex-col gap-3">
+                  <span className="text-[9px] font-black opacity-40 uppercase">
+                    تظليل
                   </span>
                   <button
-                    onClick={() => setFontSize((f) => Math.min(32, f + 2))}
-                    className="p-3 bg-emerald-800 rounded-xl text-white hover:bg-emerald-700 transition-colors"
+                    onClick={() =>
+                      setHighlightMode(
+                        hModes[
+                          (hModes.indexOf(highlightMode) + 1) % hModes.length
+                        ],
+                      )
+                    }
+                    className="w-full bg-emerald-600 text-white py-2.5 rounded-xl font-black text-[10px] shadow-md transition-all active:scale-95"
                   >
-                    <Plus className="w-5 h-5" />
+                    <Highlighter size={12} className="inline ml-1" />{" "}
+                    {hModesAr[highlightMode]}
                   </button>
                 </div>
-
-                <div className="mt-4 p-4 bg-emerald-950/50 rounded-xl border border-emerald-800/50 text-center">
-                  <p
-                    style={{ fontSize: "10px" }}
-                    className="text-emerald-600 mb-2 uppercase"
+                <div className="p-4 dark:bg-emerald-900/20 bg-slate-50 rounded-2xl border border-inherit text-center flex flex-col gap-3">
+                  <span className="text-[9px] font-black opacity-40 uppercase">
+                    عرض الآيات
+                  </span>
+                  <button
+                    onClick={() =>
+                      setVerseViewMode(
+                        vModes[
+                          (vModes.indexOf(verseViewMode) + 1) % vModes.length
+                        ],
+                      )
+                    }
+                    className="w-full bg-emerald-600 text-white py-2.5 rounded-xl font-black text-[10px] shadow-md transition-all active:scale-95"
                   >
-                    مثال للمعاينة
-                  </p>
-                  <h3
-                    style={{ fontSize: `${fontSize}px` }}
-                    className="text-white font-bold mb-1"
-                  >
-                    سورة الفاتحة
-                  </h3>
-                  <p
-                    style={{ fontSize: `${Math.max(10, fontSize - 6)}px` }}
-                    className="text-emerald-500 font-medium"
-                  >
-                    آياتها: ٧ آيات
-                  </p>
+                    <Layers size={12} className="inline ml-1" />{" "}
+                    {vModesAr[verseViewMode]}
+                  </button>
                 </div>
               </div>
+              <div className="p-6 dark:bg-emerald-900/20 bg-slate-50 rounded-[2.5rem] border border-inherit flex items-center justify-between shadow-inner">
+                <button
+                  onClick={() => setFontSize((f) => Math.max(12, f - 2))}
+                  className="p-4 bg-emerald-600 rounded-2xl text-white active:scale-90 shadow-lg"
+                >
+                  <Minus size={22} />
+                </button>
+                <span
+                  className={`text-4xl font-black ${theme === "dark" ? "text-amber-500" : "text-emerald-700"} font-mono`}
+                >
+                  {fontSize}
+                </span>
+                <button
+                  onClick={() => setFontSize((f) => Math.min(36, f + 2))}
+                  className="p-4 bg-emerald-600 rounded-2xl text-white active:scale-90 shadow-lg"
+                >
+                  <Plus size={22} />
+                </button>
+              </div>
+              <button
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                className="w-full bg-emerald-900/10 p-6 rounded-[2.5rem] flex justify-between items-center border border-emerald-800/30 font-black transition-all hover:bg-amber-500/10 shadow-sm"
+              >
+                <span>
+                  {theme === "dark" ? "الوضع الليلي 🌙" : "الوضع النهاري ☀️"}
+                </span>
+                <Moon size={20} />
+              </button>
             </div>
           </div>
         </div>
