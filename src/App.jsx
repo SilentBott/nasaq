@@ -84,7 +84,6 @@ export default function App() {
     loadQuran();
   }, [riwaya]);
 
-  //! test [ID: 02] دالة حساب التقدم وتأمين تمريرها للـ Provider (لحل TypeError ayat)
   const getUniqueVersesCount = (surahLogs) => {
     if (!surahLogs) return 0;
     const covered = new Set();
@@ -188,11 +187,11 @@ export default function App() {
     }
   };
 
-  //! test [ID: 03] الختم المطول 4 ثواني المصلح بلملي لمنع قائمة المتصفح
+  //! test [ID: 02] الختم المطول 4 ثواني المصلح بلملي
   const handleLongPress = (surah) => {
     if (!surah) return;
     pressTimer.current = setTimeout(async () => {
-      if (window.confirm(`هل تريد ختم سورة ${surah.name_ar} بالكامل؟`)) {
+      if (window.confirm(`هل ختمت سورة ${surah.name_ar} بالكامل؟`)) {
         await supabase
           .from("khatmah_logs")
           .insert({
@@ -200,13 +199,10 @@ export default function App() {
             user_name: userName,
             status: "completed",
             verse_start: 1,
-            verse_end: surah.ayat,
+            verse_end: surah?.ayat || 1,
             khatmah_id: currentGroup.id,
           });
-        if (streak === 0) {
-          setStreak(1);
-          localStorage.setItem("nasaq-streak", 1);
-        }
+        if (streak === 0) setStreak(1);
         fetchData();
       }
     }, 4000);
@@ -301,16 +297,17 @@ export default function App() {
                   </button>
                   <div className="flex flex-col text-right">
                     <h1
-                      className="font-black text-amber-500 font-serif leading-tight tracking-tighter"
+                      className={`font-black font-serif leading-tight tracking-tighter ${theme === "dark" ? "text-amber-500" : "text-slate-900"}`}
                       style={{ fontSize: `${fontSize + 4}px` }}
                     >
                       {currentGroup.name}
                     </h1>
+                    {/* //! test تعريب كلمة رواية بالعربي بلملي */}
                     <span
                       className="opacity-60 font-bold"
                       style={{ fontSize: `${fontSize * 0.65}px` }}
                     >
-                      {userName} • {riwayaAr[riwaya]}
+                      {userName} • رواية: {riwayaAr[riwaya]}
                     </span>
                   </div>
                 </div>
@@ -338,24 +335,50 @@ export default function App() {
               />
             </header>
 
+            {/* //! test [ID: 03] الترتيب الجديد للتاجات: كل ← لم ننهها ← باقي ← تمت */}
+            <div className="max-w-4xl mx-auto px-4 pt-32 sm:pt-40 py-6 flex flex-row-reverse items-center justify-between gap-4 flex-wrap">
+              <button
+                onClick={() => setQuickRegister(true)}
+                style={{ fontSize: `${fontSize}px` }}
+                className="font-black underline underline-offset-8 text-amber-500 hover:text-amber-400 active:scale-95 transition-all"
+              >
+                تسجيل سريع
+              </button>
+              <div className="flex flex-wrap flex-row-reverse gap-2">
+                {[
+                  { id: "all", label: "كلّ" },
+                  { id: "mine", label: "لم ننهها" },
+                  { id: "remaining", label: "باقي" },
+                  { id: "completed", label: "تمّت" },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setFilter(t.id)}
+                    className={`px-4 py-1.5 rounded-full font-black border transition-all ${filter === t.id ? "bg-amber-500 text-emerald-950 border-amber-500 shadow-lg scale-105" : theme === "dark" ? "bg-emerald-900/10 border-emerald-800 text-emerald-500" : "bg-white border-slate-200 text-slate-500"}`}
+                    style={{ fontSize: `${Math.max(10, fontSize - 6)}px` }}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <main
               dir="rtl"
-              className="p-4 max-w-4xl mx-auto grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4 pt-32 sm:pt-40 pb-24"
+              className="p-4 max-w-4xl mx-auto grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4 pb-24"
             >
               {SURAHS.filter((s) => {
                 const sLogs = (logs || []).filter((l) => l.surah_id === s.id);
-                if (filter === "completed")
-                  return (
-                    sLogs.some((l) => l.status === "completed") ||
-                    getUniqueVersesCount(sLogs) >= s.ayat
-                  );
-                if (filter === "remaining")
-                  return (
-                    !sLogs.some((l) => l.status === "completed") &&
-                    getUniqueVersesCount(sLogs) < s.ayat
-                  );
+                const isSuraCompleted =
+                  getUniqueVersesCount(sLogs) >= s.ayat ||
+                  sLogs.some((l) => l.status === "completed");
+                if (filter === "completed") return isSuraCompleted;
+                if (filter === "remaining") return !isSuraCompleted;
                 if (filter === "mine")
-                  return sLogs.some((l) => l.status === "reading");
+                  return (
+                    sLogs.some((l) => l.user_name === userName) &&
+                    !isSuraCompleted
+                  );
                 return true;
               }).map((s) => (
                 <SurahCard

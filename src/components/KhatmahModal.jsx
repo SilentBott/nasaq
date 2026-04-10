@@ -57,7 +57,7 @@ const VerseSelect = ({
   }, []);
 
   return (
-    <div className="relative flex-[10] overflow-visible" ref={ref}>
+    <div className="relative flex-1 overflow-visible" ref={ref}>
       {!isOpen ? (
         <button
           disabled={disabled}
@@ -66,7 +66,7 @@ const VerseSelect = ({
             fontSize: `${isMobile ? fontSize - 5 : fontSize}px`,
             fontWeight: "900",
           }}
-          className={`w-full rounded-2xl p-4 text-center border transition-all ${theme === "dark" ? "bg-[#004030] border-emerald-800 text-emerald-300" : "bg-white border-slate-300 text-slate-700"} shadow-sm`}
+          className={`w-full rounded-2xl p-4 text-center border transition-all ${theme === "dark" ? "bg-[#004030] border-emerald-800 text-emerald-300" : "bg-white border-slate-300 text-slate-800 shadow-sm"}`}
         >
           {value === 0
             ? label
@@ -94,7 +94,7 @@ const VerseSelect = ({
         <div
           className={`absolute bottom-full mb-3 left-0 right-0 z-[1100] rounded-3xl border-2 ${theme === "dark" ? "bg-[#004030] border-emerald-800" : "bg-white border-slate-300"} shadow-[0_30px_60px_rgba(0,0,0,0.8)] overflow-hidden opacity-100`}
         >
-          <div className="max-h-64 overflow-y-auto quran-scroll bg-inherit">
+          <div className="max-h-[450px] overflow-y-auto quran-scroll bg-inherit">
             {(filtered || []).map((n) => (
               <button
                 key={n}
@@ -146,7 +146,7 @@ export default function KhatmahModal({
   getOccupiedVerses,
   openModal,
 }) {
-  //! test [Hook Order Protection] تم نقل كل الـ Hooks للقمة لحل كراش React
+  //! test [Hook Order Protection]
   const {
     fontSize,
     theme,
@@ -185,12 +185,11 @@ export default function KhatmahModal({
     if (selected) setVerseMenu(null);
   }, [selected]);
 
-  //! test [Return Protection] أي return يكون بعد الـ Hooks فوراً
   if (!selected && !quickRegister) return null;
   const occupied = selected ? getOccupiedVerses(selected.id) : new Set();
 
   const toggleVerseMenu = (aya, e) => {
-    if (getOccupiedVerses(selected?.id).has(aya)) return;
+    if (occupied.has(aya)) return;
     if (verseMenu?.aya === aya) setVerseMenu(null);
     else setVerseMenu({ aya, x: e.clientX, y: e.clientY });
   };
@@ -254,7 +253,9 @@ export default function KhatmahModal({
                 )}
               </button>
             )}
-            <h2 className="text-3xl font-black text-amber-500 font-serif tracking-tighter">
+            <h2
+              className={`text-3xl font-black font-serif tracking-tighter ${theme === "dark" ? "text-amber-500" : "text-black"}`}
+            >
               {selected ? selected.name_ar : "البحث السريع"}
             </h2>
           </div>
@@ -268,7 +269,7 @@ export default function KhatmahModal({
                 <input
                   autoFocus
                   placeholder="سورة أو آية..."
-                  className="bg-transparent w-full outline-none font-black font-serif text-2xl text-white"
+                  className={`bg-transparent w-full outline-none font-black font-serif text-2xl ${theme === "dark" ? "text-white" : "text-slate-900"}`}
                   onChange={(e) => setQSearch(e.target.value)}
                 />
               </div>
@@ -277,32 +278,55 @@ export default function KhatmahModal({
                   className="space-y-10 max-h-[60vh] overflow-y-auto quran-scroll p-1"
                   dir="rtl"
                 >
-                  {quickResults.suras?.map((s, i) => (
-                    <button
-                      key={s.id}
-                      onClick={() => openModal(s)}
-                      className={`w-full p-6 rounded-[2rem] border-2 font-black text-right dark:bg-[#004030] bg-slate-50 text-white mb-3 transition-all`}
-                    >
-                      {s.name_ar}
-                    </button>
-                  ))}
-                  {quickResults.ayas?.map((a, i) => (
-                    <button
-                      key={i}
-                      onClick={() => {
-                        const s = SURAHS.find((sr) => sr.id === a.sura);
-                        if (s) openModal(s, a.aya);
-                      }}
-                      className="w-full p-6 rounded-[2rem] border-2 text-right flex justify-between items-center dark:bg-[#004030] bg-slate-50 mb-3 text-white transition-all"
-                    >
-                      <span className="font-black text-amber-500 bg-amber-500/5 px-4 py-1.5 rounded-full text-xs shrink-0">
-                        {SURAHS.find((s) => s.id === a.sura)?.name_ar} : {a.aya}
-                      </span>
-                      <span className="truncate opacity-90 font-serif text-xl font-bold">
-                        {a.text}
-                      </span>
-                    </button>
-                  ))}
+                  {quickResults.suras?.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-4 mb-5 px-4">
+                        <span className="font-black text-[10px] opacity-40 uppercase tracking-widest text-emerald-500">
+                          السور
+                        </span>
+                        <div className="h-px bg-emerald-500/20 flex-1" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        {quickResults.suras?.map((s, i) => (
+                          <button
+                            key={s.id}
+                            onClick={() => openModal(s)}
+                            className={`p-6 rounded-[2rem] border-2 font-black text-right dark:bg-[#004030] bg-slate-50 text-white transition-all ${i === quickResults.suras.length - 1 && quickResults.suras.length % 2 !== 0 ? "col-span-2" : ""}`}
+                          >
+                            سورة - {s.name_ar}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {quickResults.ayas?.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-4 mb-5 px-4">
+                        <span className="font-black text-[10px] opacity-40 uppercase tracking-widest text-emerald-500">
+                          الآيات
+                        </span>
+                        <div className="h-px bg-emerald-500/20 flex-1" />
+                      </div>
+                      {quickResults.ayas?.map((a, i) => (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            const s = SURAHS.find((sr) => sr.id === a.sura);
+                            if (s) openModal(s, a.aya);
+                          }}
+                          className="w-full p-6 rounded-[2rem] border-2 text-right flex justify-between items-center dark:bg-[#004030] bg-slate-50 mb-3 text-white transition-all"
+                        >
+                          <span className="font-black text-amber-500 bg-amber-500/5 px-4 py-1.5 rounded-full text-xs shrink-0">
+                            آية - {SURAHS.find((s) => s.id === a.sura)?.name_ar}{" "}
+                            : {a.aya}
+                          </span>
+                          <span className="truncate opacity-90 font-serif text-xl font-bold">
+                            {a.text}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -321,7 +345,6 @@ export default function KhatmahModal({
                     </button>
                     {!continuousReading && (
                       <div className="flex items-center gap-6">
-                        {/* //! test [ID: 05] الأزرار المصلحة (اليمين يرجع، الشمال يقدم) */}
                         <button
                           onClick={() =>
                             setCurrentPageIndex((p) => Math.max(0, p - 1))
@@ -351,7 +374,6 @@ export default function KhatmahModal({
                   <div
                     className={`w-full ${isMobile ? "w-full px-0" : ""} p-8 sm:p-14 ${theme === "dark" ? "bg-[#004030] border-emerald-900 shadow-inner" : "bg-[#fffdf5] border-amber-100 shadow-sm"} border-y-4 rounded-3xl overflow-hidden`}
                   >
-                    {/* //! test [ID: 06] معادلة حجم الخط الذكية x1.5 المصلحة بلملي (Zero Margins موبايل) */}
                     <div
                       style={{
                         fontSize: `${isMobile ? (fontSize / 2 + 6) * 1.5 : fontSize * 1.5 + 4}px`,
@@ -377,11 +399,11 @@ export default function KhatmahModal({
                           );
                           const isOcc = occupied.has(v.aya);
                           return (
-                            /* //! test [ID: 07] التظليل الصلب المعتم بلملي (Solid Block Fill) للوضوح القوي */
+                            /* //! test [ID: 08] الهايلايت الأصفر الملكي (Solid Fill) بلملي للوضوح التام */
                             <span
                               key={i}
                               onClick={(e) => toggleVerseMenu(v.aya, e)}
-                              className={`inline transition-all duration-200 cursor-pointer ${isOcc ? "opacity-30 grayscale pointer-events-none" : ""} ${isSel ? "bg-emerald-800 text-white shadow-sm font-black block w-full text-center py-1" : ""}`}
+                              className={`inline transition-all duration-200 cursor-pointer ${isOcc ? "opacity-30 grayscale pointer-events-none" : ""} ${isSel ? "bg-[#fbbf24] text-white shadow-sm font-black block w-full text-center py-1" : ""}`}
                               style={
                                 isSel
                                   ? {
@@ -403,7 +425,7 @@ export default function KhatmahModal({
                   </div>
                   {verseMenu && (
                     <div
-                      className="fixed z-[1200] bg-white dark:bg-[#064e3b] shadow-[0_30px_60px_rgba(0,0,0,0.8)] rounded-3xl border-2 border-amber-500 flex p-2 animate-in zoom-in"
+                      className="fixed z-[9999] bg-white dark:bg-[#064e3b] shadow-[0_30px_60px_rgba(0,0,0,0.8)] rounded-3xl border-2 border-amber-500 flex p-2 animate-in zoom-in"
                       style={{
                         left: verseMenu.x,
                         top: verseMenu.y,
@@ -428,8 +450,7 @@ export default function KhatmahModal({
                   )}
                 </div>
               )}
-              {/* //! test [ID: 08] المحاذاة المصلحة (Same Level): استخدام absolute لزر "آخر السورة" */}
-              <div className="space-y-4 mb-10 px-2 mt-10">
+              <div className="space-y-6 mb-10 px-2 mt-10">
                 {(vRanges || []).map((range, index) => (
                   <div
                     key={index}
@@ -452,7 +473,7 @@ export default function KhatmahModal({
                       fontSize={fontSize}
                     />
                     <span className="text-slate-300 font-black px-1">:</span>
-                    <div className="flex-[10] relative flex flex-col items-start">
+                    <div className="flex-1 relative flex flex-col items-start min-w-[120px]">
                       <VerseSelect
                         value={range.end}
                         onChange={(v) => {
@@ -485,7 +506,6 @@ export default function KhatmahModal({
                         fontSize={fontSize}
                         startLimit={range.start}
                       />
-                      {/* //! test [ID: 09] زر "إلى آخر السورة" باللون الأبيض في آخر سطر فقط بلملي */}
                       {index === vRanges.length - 1 && (
                         <button
                           onClick={() => {
@@ -494,7 +514,7 @@ export default function KhatmahModal({
                             r[index].isActive = true;
                             setVRanges(r);
                           }}
-                          className="absolute top-full mt-1 text-[10px] font-black text-white underline text-left px-2 whitespace-nowrap"
+                          className={`absolute top-full mt-1 text-[10px] font-black underline text-left px-2 whitespace-nowrap ${theme === "dark" ? "text-white" : "text-slate-500"}`}
                         >
                           إلى آخر السورة
                         </button>
@@ -520,7 +540,7 @@ export default function KhatmahModal({
                   </div>
                 ))}
               </div>
-              <div className="flex gap-4 pt-4">
+              <div className="flex gap-4 pt-6">
                 <button
                   onClick={onDeleteAll}
                   className={`p-6 rounded-[2.5rem] border-2 transition-all dark:bg-red-500/10 bg-red-50 border-inherit text-red-500 active:scale-90`}

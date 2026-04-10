@@ -4,14 +4,13 @@ import { CheckCircle2 } from "lucide-react";
 
 export default function SurahCard({ s, logs, userName, onClick, ...props }) {
   const { theme, getUniqueVersesCount } = useContext(FontContext);
-  if (!s) return null; // //! test حماية صخرية
+  if (!s) return null;
 
   const sLogs = (logs || []).filter((l) => l.surah_id === s.id);
   const progress = getUniqueVersesCount(sLogs);
   const isCompleted =
     progress >= (s?.ayat || 0) || sLogs.some((l) => l.status === "completed");
 
-  //! test [ID: 04] ترتيب المخلصين حسب عدد الآيات المنجزة فعلياً
   const finishers = useMemo(() => {
     if (!isCompleted) return null;
     const userStats = {};
@@ -34,13 +33,18 @@ export default function SurahCard({ s, logs, userName, onClick, ...props }) {
         <span className="text-[10px] font-black opacity-30 uppercase tracking-widest">
           {s.id}
         </span>
-        <h3 className="font-black font-serif text-xl text-amber-500 group-hover:scale-110 transition-transform">
+        {/* //! test اسم السورة أسود في النهار وذهبي في الليل */}
+        <h3
+          className={`font-black font-serif text-xl group-hover:scale-110 transition-transform ${theme === "dark" ? "text-amber-500" : "text-black"}`}
+        >
           {s.name_ar}
         </h3>
         {isCompleted ? (
           <div className="flex flex-col items-center gap-1 animate-in zoom-in duration-500">
             <CheckCircle2 size={24} className="text-emerald-500" />
-            <span className="text-[10px] font-black text-emerald-600/80 leading-tight">
+            <span
+              className={`text-[10px] font-black leading-tight ${theme === "dark" ? "text-emerald-600/80" : "text-emerald-700"}`}
+            >
               ختمها: {finishers?.slice(0, 2).join("، ")}
               {finishers?.length > 2 ? ".." : ""}
             </span>
@@ -53,7 +57,6 @@ export default function SurahCard({ s, logs, userName, onClick, ...props }) {
           </div>
         )}
       </div>
-      {/* //! test Progress Bar مدمج أسفل الكارت بلملي */}
       <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-200/10 overflow-hidden">
         <div
           className="bg-emerald-500 h-full transition-all duration-1000 shadow-[0_0_8px_rgba(16,185,129,0.6)]"
