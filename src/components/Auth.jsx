@@ -55,6 +55,7 @@ export default function Auth({
           className="w-full space-y-4"
         >
           <input
+            maxLength={30}
             type="text"
             placeholder="اسمك الكريم..."
             className={`w-full border rounded-2xl px-6 py-5 outline-none text-center font-black transition-all placeholder:opacity-30 text-lg ${

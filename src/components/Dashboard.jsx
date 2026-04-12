@@ -203,6 +203,7 @@ export default function Dashboard({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-12">
           <div className="dark:bg-emerald-900/5 bg-white border border-dashed p-7 rounded-[2.5rem] border-inherit shadow-sm">
             <input
+              maxLength={30}
               value={nInp}
               onKeyDown={(e) => e.key === "Enter" && onCreate(nInp)}
               onChange={(e) => setNInp(e.target.value)}
@@ -221,6 +222,7 @@ export default function Dashboard({
           </div>
           <div className="dark:bg-emerald-900/5 bg-white border border-dashed p-7 rounded-[2.5rem] border-inherit shadow-sm">
             <input
+              maxLength={30}
               value={jInp}
               onKeyDown={(e) => e.key === "Enter" && onJoin(jInp)}
               onChange={(e) => setJInp(e.target.value)}
@@ -332,15 +334,29 @@ export default function Dashboard({
                     </button>
                   </div>
                 </div>
+                {/* ستايل أساسي عشان الـ Ripple ميعملش بهتان (Crossfade) افتراضي */}
+                <style>{`
+                  ::view-transition-old(root) { animation: none; mix-blend-mode: normal; z-index: -1; }
+                  ::view-transition-new(root) { mix-blend-mode: normal; z-index: 9999; }
+                `}</style>
+
                 <button
                   onClick={() => {
-                    if (themeSetting === "light") setThemeSetting("dark");
-                    else if (themeSetting === "dark") setThemeSetting("auto");
-                    else setThemeSetting("light");
+                    const nextTheme =
+                      themeSetting === "light"
+                        ? "dark"
+                        : themeSetting === "dark"
+                          ? "auto"
+                          : "light";
+                    setThemeSetting(nextTheme);
                   }}
-                  className={`w-full mt-6 p-6 rounded-[2.5rem] flex justify-between items-center border font-black transition-all shadow-sm active:scale-95 ${theme === "dark" ? "bg-emerald-900/30 border-emerald-500/20 text-emerald-100 hover:bg-amber-500/10" : "bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200"}`}
+                  className={`relative w-full mt-6 p-6 rounded-[2.5rem] flex justify-between items-center border-2 font-black transition-all duration-500 shadow-sm active:scale-95 group ${
+                    theme === "dark"
+                      ? "bg-emerald-900/30 border-[#ffb900]/40 text-emerald-100 hover:bg-[#ffb900]/10 hover:border-[#ffb900]"
+                      : "bg-amber-50/50 border-amber-300 text-slate-800 hover:bg-amber-100 hover:border-amber-400"
+                  }`}
                 >
-                  <span className="tracking-wide">
+                  <span className="tracking-wide relative z-10">
                     {themeSetting === "dark"
                       ? "الوضع الليلي 🌙"
                       : themeSetting === "light"
@@ -348,10 +364,10 @@ export default function Dashboard({
                         : "المظهر التلقائي ⚙️"}
                   </span>
                   <Moon
-                    size={20}
-                    className={
-                      theme === "dark" ? "text-emerald-300" : "text-slate-500"
-                    }
+                    size={22}
+                    className={`relative z-10 transition-all duration-500 group-active:rotate-180 group-active:scale-75 ${
+                      theme === "dark" ? "text-[#ffb900]" : "text-amber-500"
+                    }`}
                   />
                 </button>
                 <div

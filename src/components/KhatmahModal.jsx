@@ -50,6 +50,18 @@ const VerseSelect = ({
       }),
     [surahId, ayatCount, query, startLimit],
   );
+  const [toast, setToast] = useState({
+    show: false,
+    message: "",
+    type: "info",
+  });
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [showOnlineBadge, setShowOnlineBadge] = useState(false);
+
+  const showToastMsg = useCallback((message, type = "info") => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast((prev) => ({ ...prev, show: false })), 3500);
+  }, []);
 
   // إغلاق اللستة لو ضغطنا بره الانبوت أو بره اللستة
   useEffect(() => {
@@ -362,6 +374,15 @@ export default function KhatmahModal({
       setSwipeOffset(0);
       setTimeout(() => setIsSnapping(false), 300);
     }
+  };
+  const onMouseDown = (e) =>
+    onTouchStart({ targetTouches: [{ clientX: e.clientX }] });
+  const onMouseMove = (e) => {
+    if (isDragging) onTouchMove({ targetTouches: [{ clientX: e.clientX }] });
+  };
+  const onMouseUp = () => onTouchEnd();
+  const onMouseLeave = () => {
+    if (isDragging) onTouchEnd();
   };
 
   // 👇 نظام التسجيل الذكي العابر للسور (The Masterpiece)
@@ -717,6 +738,7 @@ export default function KhatmahModal({
             <>
               {showFullQuran && (
                 <div className="mb-8 w-full animate-in fade-in duration-500">
+                  {/* 👇 الهيدر اللي فيه زراير التقليب */}
                   <div className="flex justify-between items-center mb-2 px-2 sm:px-6">
                     <button
                       onClick={() => setContinuousReading(!continuousReading)}
@@ -724,14 +746,49 @@ export default function KhatmahModal({
                     >
                       {continuousReading ? "قراءة متواصلة" : "عرض الصفحات"}
                     </button>
+                    {/* 👇 زراير التقليب للكمبيوتر رجعناها هنا */}
+                    {!continuousReading &&
+                      surahPages &&
+                      surahPages.length > 0 && (
+                        <div className="flex items-center gap-3" dir="ltr">
+                          {/* زرار الصفحة التالية (سهم يسار) */}
+                          <button
+                            onClick={handleNextPage}
+                            className={`p-2 rounded-full transition-all active:scale-95 ${theme === "dark" ? "bg-emerald-900 text-emerald-400 hover:bg-emerald-800" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"}`}
+                          >
+                            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                          </button>
+
+                          {/* رقم الصفحة في النص */}
+                          <span
+                            className={`font-black text-xs sm:text-sm px-2 ${theme === "dark" ? "text-emerald-300" : "text-emerald-700"}`}
+                          >
+                            صـــ {surahPages[currentPageIndex]}
+                          </span>
+
+                          {/* زرار الصفحة السابقة (سهم يمين) */}
+                          <button
+                            onClick={handlePrevPage}
+                            className={`p-2 rounded-full transition-all active:scale-95 ${theme === "dark" ? "bg-emerald-900 text-emerald-400 hover:bg-emerald-800" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"}`}
+                          >
+                            <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                          </button>
+                        </div>
+                      )}
                   </div>
 
                   <div
                     className={`relative touch-pan-y w-full border-y-2 sm:border-y-4 rounded-[1.5rem] sm:rounded-[2.5rem] overflow-hidden ${theme === "dark" ? "border-emerald-900/50 bg-[#042f24]" : "border-amber-100 bg-white"}`}
+                    // أحداث اللمس للموبايل
                     onTouchStart={!continuousReading ? onTouchStart : undefined}
                     onTouchMove={!continuousReading ? onTouchMove : undefined}
                     onTouchEnd={!continuousReading ? onTouchEnd : undefined}
                     onTouchCancel={!continuousReading ? onTouchEnd : undefined}
+                    // 👇 أحداث الماوس للابتوب ضفناها هنا
+                    onMouseDown={!continuousReading ? onMouseDown : undefined}
+                    onMouseMove={!continuousReading ? onMouseMove : undefined}
+                    onMouseUp={!continuousReading ? onMouseUp : undefined}
+                    onMouseLeave={!continuousReading ? onMouseLeave : undefined}
                     dir="rtl"
                   >
                     {/* 👇 شريط الصفحات المتصل */}
