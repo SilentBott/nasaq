@@ -208,7 +208,6 @@ export default function Dashboard({
             }}
             onPointerDown={() => startGroupHold(k)}
             onPointerUp={cancelGroupHold}
-            onPointerMove={cancelGroupHold}
             onPointerLeave={cancelGroupHold}
             onContextMenu={(e) => e.preventDefault()}
             className={`w-full relative overflow-hidden touch-manipulation select-none ${theme === "dark" ? "bg-emerald-900/5 border-emerald-800/50" : "bg-white border-slate-100"} border p-8 rounded-[3rem] flex flex-row-reverse justify-between items-center group active:scale-95 shadow-sm`}
@@ -433,13 +432,18 @@ export default function Dashboard({
                                 padding: "0 1px",
                                 margin: "0 -1px",
                                 boxDecorationBreak: "clone",
-                                borderRadius: "2px",
-                                backgroundImage:
+                                WebkitBoxDecorationBreak: "clone",
+                                backgroundImage: `linear-gradient(to bottom, transparent 6px, ${
                                   theme === "dark"
-                                    ? "linear-gradient(to bottom, transparent .3em, #d4af37 0px)" // اغمق "نقطة" بسيطة لليلي
-                                    : "linear-gradient(to bottom, transparent .3em, rgba(255, 217, 105, 1) 0px)",
-                                mixBlendMode:
-                                  theme === "dark" ? "lighten" : "darken",
+                                    ? "rgba(212, 175, 55, 1)"
+                                    : "rgba(255, 217, 105, 1)"
+                                } 2px, ${
+                                  theme === "dark"
+                                    ? "rgba(212, 175, 55, 1)"
+                                    : "rgba(255, 217, 105, 1)"
+                                } calc(100% - 0px), transparent calc(100% - 4px))`,
+                                backgroundClip: "padding-box",
+                                backgroundColor: "transparent",
                               }
                             : highlightMode === "row"
                               ? {

@@ -105,7 +105,6 @@ export default function SurahCard({
       onClick={handleClick}
       onPointerDown={startPress}
       onPointerUp={cancelPress}
-      onPointerMove={cancelPress}
       onPointerLeave={cancelPress}
       onContextMenu={(e) => e.preventDefault()}
       {...props}

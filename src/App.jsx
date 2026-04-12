@@ -624,6 +624,23 @@ export default function App() {
                 setSelected(null);
                 setQuickRegister(false);
               }}
+              onMultiClaim={async (inserts) => {
+                setLoading(true);
+                // تجميع البيانات وإضافة اسم اليوزر والمجموعة
+                const enriched = inserts.map((i) => ({
+                  ...i,
+                  user_name: userName,
+                  status: "reading",
+                  khatmah_id: currentGroup.id,
+                }));
+                if (enriched.length > 0)
+                  await supabase.from("khatmah_logs").insert(enriched);
+                fetchData();
+                setLoading(false);
+                setSelected(null);
+                setQuickRegister(false);
+                alert("تم تسجيل الورد الممتد عبر السور بنجاح! 🌟");
+              }}
               onDeleteRange={async (id) => {
                 await supabase.from("khatmah_logs").delete().eq("id", id);
                 fetchData();
