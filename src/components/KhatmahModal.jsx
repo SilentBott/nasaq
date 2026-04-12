@@ -123,7 +123,6 @@ const VerseSelect = ({
         >
           <Search size={16} className="text-amber-500" />
           <input
-            autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="رقم.."
@@ -577,33 +576,33 @@ export default function KhatmahModal({
             } p-2 sm:p-10 text-right relative flex flex-col`}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="w-12 h-1.5 bg-emerald-500/20 rounded-full mx-auto mb-6 lg:hidden shrink-0"></div>
+          <div className="w-12 h-1.5 bg-emerald-500/20 rounded-full mx-auto mb-2 lg:hidden shrink-0"></div>
 
-          <div className="flex justify-between items-center mb-8 px-2">
+          <div className="relative flex items-center justify-between mb-2 gap-2 px-2 min-h-[48px]">
+            {selected && (
+              <button
+                onClick={() => setShowFullQuran(!showFullQuran)}
+                className="transition-all active:scale-90"
+              >
+                {showFullQuran ? (
+                  <Book
+                    size={28}
+                    className={`sm:w-8 sm:h-8 ${theme === "dark" ? "text-emerald-400" : "text-emerald-900"}`}
+                  />
+                ) : (
+                  <BookOpen
+                    size={28}
+                    className="sm:w-8 sm:h-8 text-[#ffb900]"
+                  />
+                )}
+              </button>
+            )}
             <h2
-              className={`text-2xl sm:text-3xl font-black font-serif tracking-tighter ${theme === "dark" ? "text-[#ffb900]" : "text-emerald-700"}`}
+              className={`text-2xl sm:text-3xl font-black mr-5 font-serif tracking-tighter ${theme === "dark" ? "text-[#ffb900]" : "text-emerald-700"}`}
             >
               {selected ? selected.name_ar : "البحث السريع"}
             </h2>
-            <div className="flex items-center gap-3 sm:gap-4">
-              {selected && (
-                <button
-                  onClick={() => setShowFullQuran(!showFullQuran)}
-                  className="transition-all active:scale-90"
-                >
-                  {showFullQuran ? (
-                    <Book
-                      size={28}
-                      className={`sm:w-8 sm:h-8 ${theme === "dark" ? "text-emerald-400" : "text-emerald-900"}`}
-                    />
-                  ) : (
-                    <BookOpen
-                      size={28}
-                      className="sm:w-8 sm:h-8 text-[#ffb900]"
-                    />
-                  )}
-                </button>
-              )}
+            <div className="flex items-center gap-3 sm:gap-4 relative z-10">
               <button
                 onClick={() => {
                   setSelected(null);
@@ -615,11 +614,10 @@ export default function KhatmahModal({
               </button>
             </div>
           </div>
-
           {quickRegister && !selected && (
             <div className="flex flex-col-reverse px-2">
               <div
-                className={`flex items-center gap-4 p-5 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] border-2 mt-6 ${theme === "dark" ? "bg-[#004030] border-emerald-800" : "bg-slate-50 border-slate-200"}`}
+                className={`flex items-center gap-4 p-5 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] border-2 ${theme === "dark" ? "bg-[#004030] border-emerald-800" : "bg-slate-50 border-slate-200"} mb-2`}
               >
                 <Search
                   className={`${theme === "dark" ? "text-slate-400" : "text-emerald-500"} w-5 h-5 sm:w-6 sm:h-6`}
@@ -631,52 +629,15 @@ export default function KhatmahModal({
                   onChange={(e) => setQSearch(e.target.value)}
                 />
               </div>
+
+              {/* 👇 السر هنا: التأكد إن النتايج مش null قبل ما نحاول نرسمها */}
               {quickResults && (
-                <div className="space-y-6 sm:space-y-8 p-2 mt-4" dir="rtl">
-                  {quickResults.suras?.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-3 mb-5">
-                        <span className="font-black text-[#ffb900] bg-[#ffb900]/10 px-3 py-1 rounded-full text-xs sm:text-sm">
-                          {quickResults.suras.length}
-                        </span>
-                        <span
-                          className={`font-black text-sm sm:text-base ${theme === "dark" ? "text-emerald-400" : "text-emerald-700"}`}
-                        >
-                          سورة
-                        </span>
-                        <div
-                          className={`flex-1 h-px ${theme === "dark" ? "bg-emerald-800/50" : "bg-slate-200"}`}
-                        ></div>
-                      </div>
-                      <div className="space-y-3 sm:space-y-4">
-                        {quickResults.suras.map((s) => (
-                          <button
-                            key={s.id}
-                            onClick={() => openModal(s)}
-                            className={`p-5 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] border-2 font-black text-right transition-all w-full text-sm sm:text-base ${theme === "dark" ? "dark:bg-[#004030] border-emerald-800 text-white hover:bg-[#004030]/80" : "bg-white border-slate-200 text-emerald-800 hover:bg-slate-50"}`}
-                          >
-                            سورة - {s.name_ar}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {quickResults.ayas?.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-3 mb-5">
-                        <span className="font-black text-[#ffb900] bg-[#ffb900]/10 px-3 py-1 rounded-full text-xs sm:text-sm">
-                          {quickResults.ayas.length}
-                        </span>
-                        <span
-                          className={`font-black text-sm sm:text-base ${theme === "dark" ? "text-emerald-400" : "text-emerald-700"}`}
-                        >
-                          آيات
-                        </span>
-                        <div
-                          className={`flex-1 h-px ${theme === "dark" ? "bg-emerald-800/50" : "bg-slate-200"}`}
-                        ></div>
-                      </div>
-                      <div className="space-y-3 sm:space-y-4">
+                <div className="p-2" dir="rtl">
+                  {/* 1. قائمة الآيات (تظهر في الأعلى) */}
+                  {quickResults?.ayas?.length > 0 && (
+                    <div className="mb-1 sm:mb-3">
+                      {/* الآيات أولاً (عشان تظهر فوق الشرطة بتاعتها) */}
+                      <div className="space-y-3 sm:space-y-4 mb-4">
                         {quickResults.ayas.map((a, i) => (
                           <button
                             key={i}
@@ -696,6 +657,54 @@ export default function KhatmahModal({
                             </span>
                           </button>
                         ))}
+                      </div>
+
+                      {/* شرطة الآيات (تظهر تحت قائمة الآيات) */}
+                      <div className="flex items-center gap-3">
+                        <span className="font-black text-[#ffb900] bg-[#ffb900]/10 px-3 py-1 rounded-full text-xs sm:text-sm">
+                          {quickResults.ayas.length}
+                        </span>
+                        <span
+                          className={`font-black text-sm sm:text-base ${theme === "dark" ? "text-emerald-400" : "text-emerald-700"}`}
+                        >
+                          آيات
+                        </span>
+                        <div
+                          className={`flex-1 h-px ${theme === "dark" ? "bg-emerald-800/50" : "bg-slate-200"}`}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 2. قائمة السور (تظهر في الأسفل، أقرب للإنبوت) */}
+                  {quickResults?.suras?.length > 0 && (
+                    <div>
+                      {/* السور (تظهر فوق الشرطة بتاعتها) */}
+                      <div className="space-y-3 sm:space-y-4 mb-4">
+                        {quickResults.suras.map((s) => (
+                          <button
+                            key={s.id}
+                            onClick={() => openModal(s)}
+                            className={`p-5 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] border-2 font-black text-right transition-all w-full text-sm sm:text-base ${theme === "dark" ? "dark:bg-[#004030] border-emerald-800 text-white hover:bg-[#004030]/80" : "bg-white border-slate-200 text-emerald-800 hover:bg-slate-50"}`}
+                          >
+                            سورة - {s.name_ar}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* شرطة السور (أقرب عنصر لإنبوت البحث مباشرة) */}
+                      <div className="flex items-center gap-3">
+                        <span className="font-black text-[#ffb900] bg-[#ffb900]/10 px-3 py-1 rounded-full text-xs sm:text-sm">
+                          {quickResults.suras.length}
+                        </span>
+                        <span
+                          className={`font-black text-sm sm:text-base ${theme === "dark" ? "text-emerald-400" : "text-emerald-700"}`}
+                        >
+                          سورة
+                        </span>
+                        <div
+                          className={`flex-1 h-px ${theme === "dark" ? "bg-emerald-800/50" : "bg-slate-200"}`}
+                        ></div>
                       </div>
                     </div>
                   )}

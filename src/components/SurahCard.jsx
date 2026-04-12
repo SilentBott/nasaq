@@ -12,6 +12,7 @@ export default function SurahCard({
 }) {
   const { theme, getUniqueVersesCount } = useContext(FontContext);
   const intervalRef = useRef(null);
+  const timeoutRef = useRef(null);
   const isLongPress = useRef(false);
   const [holdProgress, setHoldProgress] = useState(0);
   const [holdAction, setHoldAction] = useState(null);
@@ -42,49 +43,56 @@ export default function SurahCard({
 
   // //! نظام السلايدر بعد التعديل لمنع التكرار (الحسابات خارج الـ State)
   const startPress = () => {
-    if (intervalRef.current) return;
+    if (intervalRef.current || timeoutRef.current) return;
 
     isLongPress.current = false;
     const action = isCompleted ? "undo" : "complete";
     setHoldAction(action);
     setHoldProgress(0);
 
-    let currentVal = 0;
-    const step = 100 / (1500 / 50); // 1.5 ثانية
+    // ⏳ السحر هنا: هنستنى 200 ملي ثانية عشان نفلتر الضغطة العادية
+    timeoutRef.current = setTimeout(() => {
+      let currentVal = 0;
+      const step = 100 / (1500 / 50); // 1.5 ثانية
 
-    intervalRef.current = setInterval(() => {
-      currentVal += step;
+      intervalRef.current = setInterval(() => {
+        currentVal += step;
 
-      if (currentVal >= 100) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-        isLongPress.current = true;
-        setHoldProgress(100);
-        if (navigator.vibrate) navigator.vibrate(50);
+        if (currentVal >= 100) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+          isLongPress.current = true;
+          setHoldProgress(100);
+          if (navigator.vibrate) navigator.vibrate(50);
 
-        setTimeout(() => {
-          if (action === "complete") {
-            if (
-              window.confirm(`هل أنت متأكد من ختم سورة ${s.name_ar} بالكامل؟`)
-            ) {
-              if (onLongPress) onLongPress(s, "complete");
+          setTimeout(() => {
+            if (action === "complete") {
+              if (
+                window.confirm(`هل أنت متأكد من ختم سورة ${s.name_ar} بالكامل؟`)
+              ) {
+                if (onLongPress) onLongPress(s, "complete");
+              }
+            } else {
+              if (
+                window.confirm(`هل أنت متأكد من إلغاء ختم سورة ${s.name_ar}؟`)
+              ) {
+                if (onLongPress) onLongPress(s, "undo");
+              }
             }
-          } else {
-            if (
-              window.confirm(`هل أنت متأكد من إلغاء ختم سورة ${s.name_ar}؟`)
-            ) {
-              if (onLongPress) onLongPress(s, "undo");
-            }
-          }
-          setHoldProgress(0);
-        }, 50);
-      } else {
-        setHoldProgress(currentVal);
-      }
-    }, 50);
+            setHoldProgress(0);
+          }, 50);
+        } else {
+          setHoldProgress(currentVal);
+        }
+      }, 50);
+    }, 200); // 👈 التأخير
   };
 
   const cancelPress = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;

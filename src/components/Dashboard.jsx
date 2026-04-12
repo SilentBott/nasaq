@@ -10,58 +10,10 @@ import {
   Plus,
   Moon,
   Settings,
-  Flame,
   RefreshCw,
   Highlighter,
   Layers,
 } from "lucide-react";
-
-const HoldToConfirmButton = ({ onConfirm, theme }) => {
-  const [progress, setProgress] = useState(0);
-  const timerRef = useRef(null);
-
-  const startHold = () => {
-    if (timerRef.current) return;
-    setProgress(0);
-    let curr = 0;
-    const step = 100 / (10000 / 100); // 10 ثواني
-    timerRef.current = setInterval(() => {
-      curr += step;
-      if (curr >= 100) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-        setProgress(100);
-        onConfirm();
-      } else {
-        setProgress(curr);
-      }
-    }, 100);
-  };
-
-  const stopHold = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = null;
-    setProgress(0);
-  };
-
-  return (
-    <div className="relative w-full overflow-hidden rounded-2xl">
-      <button
-        onPointerDown={startHold}
-        onPointerUp={stopHold}
-        onPointerLeave={stopHold}
-        onContextMenu={(e) => e.preventDefault()}
-        className={`relative z-10 w-full py-4 font-black text-xs sm:text-sm transition-all select-none touch-manipulation ${theme === "dark" ? "bg-red-900/40 text-red-300 border border-red-800/50" : "bg-red-50 text-red-600 border border-red-200"}`}
-      >
-        إزالة كل ما قرأته في المجموعة (اضغط باستمرار 10 ثوانٍ)
-      </button>
-      <div
-        className="absolute top-0 bottom-0 left-0 bg-red-600 transition-all ease-linear duration-100 z-0 opacity-50"
-        style={{ width: `${progress}%` }}
-      ></div>
-    </div>
-  );
-};
 
 export default function Dashboard({
   userName,
@@ -77,6 +29,8 @@ export default function Dashboard({
     setFontSize,
     theme,
     setTheme,
+    themeSetting,
+    setThemeSetting,
     streak,
     verseViewMode,
     setVerseViewMode,
@@ -111,41 +65,52 @@ export default function Dashboard({
   const [holdingGroupId, setHoldingGroupId] = useState(null);
   const [holdProgress, setHoldProgress] = useState(0);
   const intervalRef = useRef(null);
+  const groupDelayRef = useRef(null);
 
   // //! نظام السلايدر للخروج من المجموعة بعد حل مشكلة التكرار
   const startGroupHold = (group) => {
-    if (intervalRef.current) return;
+    if (intervalRef.current || groupDelayRef.current) return;
 
     setHoldingGroupId(group.id);
     setHoldProgress(0);
-    let currentVal = 0;
-    const step = 100 / (1500 / 50);
 
-    intervalRef.current = setInterval(() => {
-      currentVal += step;
+    // ⏳ انتظار 200 ملي ثانية
+    groupDelayRef.current = setTimeout(() => {
+      let currentVal = 0;
+      const step = 100 / (1500 / 50);
 
-      if (currentVal >= 100) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-        setHoldProgress(100);
-        if (navigator.vibrate) navigator.vibrate(50);
+      intervalRef.current = setInterval(() => {
+        currentVal += step;
 
-        setTimeout(() => {
-          if (
-            window.confirm(`هل أنت متأكد من الخروج من مجموعة "${group.name}"؟`)
-          ) {
-            if (onLeaveGroup) onLeaveGroup(group.id);
-          }
-          setHoldingGroupId(null);
-          setHoldProgress(0);
-        }, 50);
-      } else {
-        setHoldProgress(currentVal);
-      }
-    }, 50);
+        if (currentVal >= 100) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+          setHoldProgress(100);
+          if (navigator.vibrate) navigator.vibrate(50);
+
+          setTimeout(() => {
+            if (
+              window.confirm(
+                `هل أنت متأكد من الخروج من مجموعة "${group.name}"؟`,
+              )
+            ) {
+              if (onLeaveGroup) onLeaveGroup(group.id);
+            }
+            setHoldingGroupId(null);
+            setHoldProgress(0);
+          }, 50);
+        } else {
+          setHoldProgress(currentVal);
+        }
+      }, 50);
+    }, 200);
   };
 
   const cancelGroupHold = () => {
+    if (groupDelayRef.current) {
+      clearTimeout(groupDelayRef.current);
+      groupDelayRef.current = null;
+    }
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -153,7 +118,6 @@ export default function Dashboard({
     setHoldProgress(0);
     setHoldingGroupId(null);
   };
-
   return (
     <div className="p-6 text-right max-w-2xl mx-auto">
       <header className="flex flex-row justify-between items-center mb-12">
@@ -290,7 +254,7 @@ export default function Dashboard({
               {theme === "dark" && (
                 <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl pointer-events-none -z-10"></div>
               )}
-              <div className="flex justify-between items-center mb-10 px-2 relative z-10">
+              <div className="flex justify-between items-center mb-6 px-2 relative z-10">
                 <h2 className="text-3xl font-black text-amber-500 font-serif">
                   الإعدادات
                 </h2>
@@ -368,6 +332,28 @@ export default function Dashboard({
                     </button>
                   </div>
                 </div>
+                <button
+                  onClick={() => {
+                    if (themeSetting === "light") setThemeSetting("dark");
+                    else if (themeSetting === "dark") setThemeSetting("auto");
+                    else setThemeSetting("light");
+                  }}
+                  className={`w-full mt-6 p-6 rounded-[2.5rem] flex justify-between items-center border font-black transition-all shadow-sm active:scale-95 ${theme === "dark" ? "bg-emerald-900/30 border-emerald-500/20 text-emerald-100 hover:bg-amber-500/10" : "bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200"}`}
+                >
+                  <span className="tracking-wide">
+                    {themeSetting === "dark"
+                      ? "الوضع الليلي 🌙"
+                      : themeSetting === "light"
+                        ? "الوضع النهاري ☀️"
+                        : "المظهر التلقائي ⚙️"}
+                  </span>
+                  <Moon
+                    size={20}
+                    className={
+                      theme === "dark" ? "text-emerald-300" : "text-slate-500"
+                    }
+                  />
+                </button>
                 <div
                   className={`p-6 rounded-[2.5rem] border flex items-center justify-between transition-colors ${theme === "dark" ? "bg-emerald-900/30 border-emerald-500/10" : "bg-slate-50/80 border-slate-200"} shadow-sm`}
                 >
@@ -377,6 +363,7 @@ export default function Dashboard({
                   >
                     <Minus size={22} />
                   </button>
+
                   <div className="flex flex-col items-center">
                     <span
                       className={`text-[0.6rem] sm:text-xs font-black uppercase tracking-widest mb-1 ${theme === "dark" ? "text-emerald-200 opacity-60" : "text-slate-400"}`}
@@ -403,7 +390,11 @@ export default function Dashboard({
                   >
                     معاينة التغييرات
                   </p>
-                  <div className="space-y-6 text-center">
+                  <div
+                    className="space-y-6 text-center"
+                    style={{ containerType: "inline-size" }}
+                  >
+                    {" "}
                     <div className="flex flex-col gap-1.5">
                       <span
                         className={`text-[0.6rem] sm:text-xs font-black uppercase ${theme === "dark" ? "text-emerald-200 opacity-30" : "text-slate-400 opacity-70"}`}
@@ -478,21 +469,6 @@ export default function Dashboard({
                     </div>
                   </div>
                 </div>
-
-                <button
-                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                  className={`w-full mt-6 p-6 rounded-[2.5rem] flex justify-between items-center border font-black transition-all shadow-sm active:scale-95 ${theme === "dark" ? "bg-emerald-900/30 border-emerald-500/20 text-emerald-100 hover:bg-amber-500/10" : "bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200"}`}
-                >
-                  <span className="tracking-wide">
-                    {theme === "dark" ? "الوضع الليلي 🌙" : "الوضع النهاري ☀️"}
-                  </span>
-                  <Moon
-                    size={20}
-                    className={
-                      theme === "dark" ? "text-emerald-300" : "text-slate-500"
-                    }
-                  />
-                </button>
               </div>
             </div>
           </div>

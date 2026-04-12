@@ -28,33 +28,47 @@ import { FontContext } from "./FontContext";
 const HoldToConfirmButton = ({ onConfirm, theme }) => {
   const [progress, setProgress] = useState(0);
   const timerRef = useRef(null);
+  const delayRef = useRef(null);
 
   const startHold = () => {
+    if (timerRef.current || delayRef.current) return;
     setProgress(0);
-    const step = 100 / (10000 / 100); // 10 ثواني = 10000 ملي ثانية
-    timerRef.current = setInterval(() => {
-      setProgress((prev) => {
-        if (prev + step >= 100) {
+
+    // ⏳ انتظار 200 ملي ثانية
+    delayRef.current = setTimeout(() => {
+      let curr = 0;
+      const step = 100 / (10000 / 100); // 10 ثواني
+      timerRef.current = setInterval(() => {
+        curr += step;
+        if (curr >= 100) {
           clearInterval(timerRef.current);
+          timerRef.current = null;
+          setProgress(100);
           onConfirm();
-          return 100;
+        } else {
+          setProgress(curr);
         }
-        return prev + step;
-      });
-    }, 100);
+      }, 100);
+    }, 200);
   };
 
   const stopHold = () => {
-    clearInterval(timerRef.current);
+    if (delayRef.current) clearTimeout(delayRef.current);
+    if (timerRef.current) clearInterval(timerRef.current);
+    delayRef.current = null;
+    timerRef.current = null;
     setProgress(0);
   };
-
   return (
-    <div className="relative w-full overflow-hidden rounded-2xl">
+    <div
+      className="relative w-full overflow-hidden rounded-2xl"
+      style={{ touchAction: "none", userSelect: "none" }}
+    >
       <button
         onPointerDown={startHold}
         onPointerUp={stopHold}
         onPointerLeave={stopHold}
+        onPointerCancel={stopHold}
         onContextMenu={(e) => e.preventDefault()}
         className={`relative z-10 w-full py-4 font-black text-xs sm:text-sm transition-all select-none touch-manipulation ${theme === "dark" ? "bg-red-900/40 text-red-300 border border-red-800/50" : "bg-red-50 text-red-600 border border-red-200"}`}
       >
@@ -88,9 +102,22 @@ export default function App() {
     const saved = Number(localStorage.getItem("font-size"));
     return saved >= 3 && saved <= 10 ? saved : 5;
   });
-  const [theme, setTheme] = useState(
-    () => localStorage.getItem("nasaq-theme") || "light",
+  const [themeSetting, setThemeSetting] = useState(
+    () => localStorage.getItem("nasaq-theme") || "auto",
   );
+
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem("nasaq-theme") || "auto";
+    if (saved === "auto") {
+      return window.matchMedia &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light";
+    }
+    return saved;
+  });
+
+  const [exitToast, setExitToast] = useState(false);
   const [streak, setStreak] = useState(
     () => Number(localStorage.getItem("nasaq-streak")) || 0,
   );
@@ -115,7 +142,39 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("all");
   const [quickRegister, setQuickRegister] = useState(false);
+  // 👇 ================== نظام الـ Streak ================== 👇
+  const updateStreak = () => {
+    const today = new Date().toDateString(); // تاريخ النهاردة
+    const lastReadDate = localStorage.getItem("nasaq-last-read");
 
+    if (lastReadDate === today) return; // لو قرأ النهاردة خلاص مفيش زيادة تانية
+
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (lastReadDate === yesterday.toDateString()) {
+      // لو كان قرأ امبارح، كمل الستريك
+      setStreak((prev) => prev + 1);
+    } else {
+      // لو أول مرة أو فوت يوم، ابدأ من 1
+      setStreak(1);
+    }
+    localStorage.setItem("nasaq-last-read", today);
+  };
+
+  // تصفير الستريك أوتوماتيك لو فتح التطبيق ولقى نفسه مفوت أكتر من يوم
+  useEffect(() => {
+    const lastReadDate = localStorage.getItem("nasaq-last-read");
+    if (!lastReadDate) return;
+
+    const today = new Date().toDateString();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (lastReadDate !== today && lastReadDate !== yesterday.toDateString()) {
+      setStreak(0); // الشعلة انطفت 💔
+    }
+  }, []);
   const riwayaAr = {
     Hafs: "حفص عن عاصم",
     Warsh: "ورش عن نافع",
@@ -136,13 +195,58 @@ export default function App() {
     handleResize();
     window.addEventListener("resize", handleResize);
     localStorage.setItem("font-size", fontSize);
-    localStorage.setItem("nasaq-theme", theme);
     localStorage.setItem("nasaq-streak", streak);
     localStorage.setItem("nasaq-riwaya", riwaya);
     localStorage.setItem("nasaq-h-mode", highlightMode);
     localStorage.setItem("nasaq-verse-mode", verseViewMode);
     return () => window.removeEventListener("resize", handleResize);
-  }, [fontSize, theme, streak, riwaya, highlightMode, verseViewMode]);
+  }, [fontSize, streak, riwaya, highlightMode, verseViewMode]);
+
+  // متابعة تغيير إعدادات الموبايل (عشان لو الموبايل قلب ليلي يقلب معاه فوراً)
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const applyTheme = () => {
+      if (themeSetting === "auto") {
+        setTheme(mediaQuery.matches ? "dark" : "light");
+      } else {
+        setTheme(themeSetting);
+      }
+    };
+    applyTheme();
+
+    const listener = () => applyTheme();
+    mediaQuery.addEventListener("change", listener);
+    localStorage.setItem("nasaq-theme", themeSetting);
+
+    return () => mediaQuery.removeEventListener("change", listener);
+  }, [themeSetting]);
+
+  // فخ زرار الرجوع للموبايل (Back Button Interceptor)
+  useEffect(() => {
+    window.history.pushState({ nasaqTrap: true }, "");
+
+    const handlePopState = () => {
+      if (selected || quickRegister || showGroupInfo || view === "about") {
+        setSelected(null);
+        setQuickRegister(false);
+        setShowGroupInfo(false);
+        if (view === "about") setView("main");
+
+        window.history.pushState({ nasaqTrap: true }, "");
+      } else {
+        if (exitToast) {
+          // لو الرسالة ظاهرة وضغط تاني.. خليه يخرج عادي من غير ما نمنعه
+        } else {
+          setExitToast(true);
+          window.history.pushState({ nasaqTrap: true }, "");
+          setTimeout(() => setExitToast(false), 2000);
+        }
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [selected, quickRegister, showGroupInfo, view, exitToast]);
 
   useEffect(() => {
     async function loadQuran() {
@@ -263,7 +367,6 @@ export default function App() {
     setLoading(true);
 
     if (action === "undo") {
-      // لو الأكشن إلغاء، هنمسح السجل بتاع ختم السورة للمستخدم ده في المجموعة دي
       await supabase
         .from("khatmah_logs")
         .delete()
@@ -272,7 +375,6 @@ export default function App() {
         .eq("status", "completed")
         .eq("khatmah_id", currentGroup.id);
     } else {
-      // لو الأكشن ختم، هنضيف سجل جديد
       const sLogs = (logs || []).filter((l) => l.surah_id === surah.id);
       if (getUniqueVersesCount(sLogs) >= surah.ayat) {
         setLoading(false);
@@ -288,6 +390,7 @@ export default function App() {
           khatmah_id: currentGroup.id,
         },
       ]);
+      updateStreak();
     }
 
     fetchData();
@@ -349,6 +452,8 @@ export default function App() {
         fontSize,
         setFontSize,
         theme,
+        themeSetting,
+        setThemeSetting,
         setTheme,
         streak,
         setStreak,
@@ -617,8 +722,10 @@ export default function App() {
                   verse_end: r.end,
                   khatmah_id: currentGroup.id,
                 }));
-                if (inserts.length > 0)
+                if (inserts.length > 0) {
                   await supabase.from("khatmah_logs").insert(inserts);
+                  updateStreak();
+                }
                 fetchData();
                 setLoading(false);
                 setSelected(null);
@@ -626,15 +733,16 @@ export default function App() {
               }}
               onMultiClaim={async (inserts) => {
                 setLoading(true);
-                // تجميع البيانات وإضافة اسم اليوزر والمجموعة
                 const enriched = inserts.map((i) => ({
                   ...i,
                   user_name: userName,
                   status: "reading",
                   khatmah_id: currentGroup.id,
                 }));
-                if (enriched.length > 0)
+                if (enriched.length > 0) {
                   await supabase.from("khatmah_logs").insert(enriched);
+                  updateStreak();
+                }
                 fetchData();
                 setLoading(false);
                 setSelected(null);
@@ -667,7 +775,6 @@ export default function App() {
               openModal={openModal}
             />
 
-            {/* //! نافذة معلومات المجموعة بعد التعديل (ستايل الإعدادات + ترتيب تنازلي) */}
             {showGroupInfo && (
               <div
                 className="fixed inset-0 z-[400] bg-black/20 backdrop-blur-sm flex items-start justify-center overflow-y-auto px-4 py-12 sm:py-20"
@@ -717,7 +824,6 @@ export default function App() {
                         الأعضاء ومساهماتهم
                       </h4>
                       <div className="space-y-3 max-h-48 overflow-y-auto quran-scroll pr-2">
-                        {/* //! الترتيب السحري: تنازلي من الأعلى للأقل بلملي */}
                         {Object.entries(groupStats.users)
                           .sort((a, b) => b[1] - a[1])
                           .map(([user, count], idx) => {
@@ -817,17 +923,20 @@ export default function App() {
                       {currentGroup.creator_name === userName && (
                         <button
                           onClick={async () => {
-                            if (
-                              window.confirm(
-                                "هذا الإجراء لا يمكن التراجع عنه. هل أنت متأكد من تصفير الختمة؟",
-                              )
-                            ) {
+                            const userInput = window.prompt(
+                              `هل أنت متأكد أنك تريد إعادة التعيين؟\nللتأكيد، اكتب اسم المجموعة:\n"${currentGroup.name}"`,
+                            );
+
+                            if (userInput === currentGroup.name) {
                               await supabase
                                 .from("khatmah_logs")
                                 .delete()
                                 .eq("khatmah_id", currentGroup.id);
                               fetchData();
                               setShowGroupInfo(false);
+                              alert("تم تصفير قراءات المجموعة بالكامل بنجاح.");
+                            } else if (userInput !== null) {
+                              alert("اسم المجموعة غير متطابق! لم يتم التصفير.");
                             }
                           }}
                           className={`w-full p-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all shadow-sm ${theme === "dark" ? "bg-red-600 hover:bg-red-500 text-white" : "bg-red-500 hover:bg-red-600 text-white"}`}
@@ -838,6 +947,13 @@ export default function App() {
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* رسالة الخروج */}
+            {exitToast && (
+              <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[9999] bg-slate-800 text-white px-6 py-3 rounded-full font-black text-sm shadow-2xl animate-in slide-in-from-bottom-5 fade-in whitespace-nowrap">
+                اضغط مرة أخرى للخروج
               </div>
             )}
           </div>
