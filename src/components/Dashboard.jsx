@@ -19,10 +19,10 @@ export default function Dashboard({
   userName,
   myKhatmats,
   setcurrentGroup,
-  onLogout,
+  onLeaveGroup,
   onCreate,
   onJoin,
-  onLeaveGroup,
+  onLogout,
 }) {
   const {
     fontSize,
@@ -56,11 +56,6 @@ export default function Dashboard({
   const hModesAr = { row: "خفيف", full: "كامل", text: "نص" };
   const vModes = ["num", "text", "both"];
   const vModesAr = { num: "رقم", text: "نص", both: "الـ2" };
-
-  const handleLogout = () => {
-    localStorage.removeItem("إسم_الحساب");
-    window.location.reload();
-  };
 
   const [holdingGroupId, setHoldingGroupId] = useState(null);
   const [holdProgress, setHoldProgress] = useState(0);
@@ -135,7 +130,7 @@ export default function Dashboard({
             </span>
           </button>
           <button
-            onClick={handleLogout}
+            onClick={onLogout}
             className={`p-3 rounded-full border dark:bg-red-500/10 dark:text-red-500 dark:border-red-500/20 bg-white text-slate-400`}
           >
             <LogOut size={20} />

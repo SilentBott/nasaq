@@ -688,6 +688,7 @@ export default function App() {
               setcurrentGroup={setcurrentGroup}
               onLeaveGroup={leaveGroup}
               onLogout={() => {
+                console.log(1);
                 showToastMsg(
                   `إلى اللقاء يا ${userName} 👋`,
                   "normal",
