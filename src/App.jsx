@@ -24,6 +24,8 @@ import {
   X,
   WifiOff,
   Wifi,
+  Globe,
+  Lock,
 } from "lucide-react";
 import { FontContext } from "./FontContext";
 
@@ -136,7 +138,7 @@ export default function App() {
       // 2. بعد 3 ثواني ونص.. ندي أمر إنه يبدأ يختفي (Fade out)
       setTimeout(
         () => setToast((prev) => ({ ...prev, isClosing: true })),
-        3500,
+        1000,
       );
 
       // 3. بعد 4 ثواني.. نمسحه من الشاشة خالص
@@ -163,7 +165,7 @@ export default function App() {
   const [dataLoading, setDataLoading] = useState(true);
   const [currentGroup, setcurrentGroup] = useState(null);
   const [showGroupInfo, setShowGroupInfo] = useState(false);
-  const [myKhatmats, setMyKhatmats] = useState([]);
+  const [myGroups, setMyGroups] = useState([]);
   const [logs, setLogs] = useState([]);
   const [selected, setSelected] = useState(null);
   const [vRanges, setVRanges] = useState([]);
@@ -319,49 +321,65 @@ export default function App() {
     if (!userName) return;
     try {
       const { data: members, error: err1 } = await supabase
-        .from("khatmah_members")
-        .select("khatmah_id")
+        .from("group_members")
+        .select("group_id")
         .eq("user_name", userName);
       if (err1) throw err1;
 
-      const ids = (members || []).map((m) => m.khatmah_id);
-      const { data: khatmats, error: err2 } = await supabase
-        .from("khatmats")
+      const ids = (members || []).map((m) => m.group_id);
+
+      // 1. نجيب المجموعات اللي اليوزر أنشأها بنفسه (بدون دالة .or اللي كانت بتهنج)
+      const { data: createdGroups, error: err2 } = await supabase
+        .from("groups")
         .select("*")
-        .or(
-          `creator_name.eq."${userName}",id.in.(${ids.length ? ids.join(",") : "00000000-0000-0000-0000-000000000000"})`,
-        );
+        .eq("creator_name", userName);
       if (err2) throw err2;
 
-      setMyKhatmats(khatmats || []);
+      // 2. نجيب المجموعات اللي اليوزر اشترك فيها
+      let joinedGroups = [];
+      if (ids.length > 0) {
+        const { data: jGroups, error: err3 } = await supabase
+          .from("groups")
+          .select("*")
+          .in("id", ids);
+        if (err3) throw err3;
+        joinedGroups = jGroups || [];
+      }
 
-      // 👇 1. أخذ لقطة للمجموعات وحفظها محلياً (عشان الأوفلاين)
+      // 3. ندمج القائمتين ونشيل المكرر
+      const allGroups = [...(createdGroups || []), ...joinedGroups];
+      const uniqueGroups = Array.from(
+        new Map(allGroups.map((item) => [item.id, item])).values(),
+      );
+
+      // 4. ترتيب عشان الأحدث يظهر الأول
+      uniqueGroups.sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at),
+      );
+
+      setMyGroups(uniqueGroups);
       localStorage.setItem(
         `nasaq-groups-${userName}`,
-        JSON.stringify(khatmats || []),
+        JSON.stringify(uniqueGroups),
       );
 
       if (currentGroup && currentGroup.id) {
-        const { data, error: err3 } = await supabase
-          .from("khatmah_logs")
+        const { data, error: err4 } = await supabase
+          .from("nasaq_logs")
           .select("*")
-          .eq("khatmah_id", currentGroup.id)
+          .eq("group_id", currentGroup.id)
           .order("created_at", { ascending: true });
-        if (err3) throw err3;
+        if (err4) throw err4;
 
-        // 👇 2. أخذ لقطة لقراءات المجموعة وحفظها محلياً
         localStorage.setItem(
           `nasaq-logs-${currentGroup.id}`,
           JSON.stringify(data || []),
         );
 
-        // دمج الأوفلاين الجديد عشان يظهر في الشاشة فوراً
         const queue = JSON.parse(
           localStorage.getItem("nasaq-offline-queue") || "[]",
         );
-        const offlineLogs = queue.filter(
-          (q) => q.khatmah_id === currentGroup.id,
-        );
+        const offlineLogs = queue.filter((q) => q.group_id === currentGroup.id);
         setLogs([...(data || []), ...offlineLogs]);
       } else {
         setLogs([]);
@@ -369,23 +387,19 @@ export default function App() {
     } catch (err) {
       console.warn("وضع عدم الاتصال مُفعل، جاري استرجاع البيانات المحلية...");
 
-      // 👇 3. لو النت قاطع، بنستدعي المجموعات من الكاش المحلي
       const cachedGroups = JSON.parse(
         localStorage.getItem(`nasaq-groups-${userName}`) || "[]",
       );
-      setMyKhatmats(cachedGroups);
+      setMyGroups(cachedGroups);
 
       if (currentGroup && currentGroup.id) {
-        // 👇 4. بنستدعي القراءات القديمة من الكاش، وندمج معاها الطابور الجديد
         const cachedLogs = JSON.parse(
           localStorage.getItem(`nasaq-logs-${currentGroup.id}`) || "[]",
         );
         const queue = JSON.parse(
           localStorage.getItem("nasaq-offline-queue") || "[]",
         );
-        const offlineLogs = queue.filter(
-          (q) => q.khatmah_id === currentGroup.id,
-        );
+        const offlineLogs = queue.filter((q) => q.group_id === currentGroup.id);
 
         setLogs(() => {
           return [
@@ -408,7 +422,7 @@ export default function App() {
     if (queue.length === 0) return;
 
     try {
-      const { error } = await supabase.from("khatmah_logs").insert(queue);
+      const { error } = await supabase.from("nasaq_logs").insert(queue);
       if (!error) {
         localStorage.removeItem("nasaq-offline-queue");
         fetchData();
@@ -466,7 +480,7 @@ export default function App() {
 
     if (navigator.onLine) {
       try {
-        const { error } = await supabase.from("khatmah_logs").insert(inserts);
+        const { error } = await supabase.from("nasaq_logs").insert(inserts);
         if (error) throw error;
       } catch (err) {
         saveOffline();
@@ -538,26 +552,26 @@ export default function App() {
       }
 
       await supabase
-        .from("khatmah_logs")
+        .from("nasaq_logs")
         .delete()
         .eq("surah_id", surah.id)
         .eq("user_name", userName)
         .eq("status", "completed")
-        .eq("khatmah_id", currentGroup.id);
+        .eq("group_id", currentGroup.id);
     } else {
       const sLogs = (logs || []).filter((l) => l.surah_id === surah.id);
       if (getUniqueVersesCount(sLogs) >= surah.ayat) {
         setLoading(false);
         return;
       }
-      await supabase.from("khatmah_logs").insert([
+      await supabase.from("nasaq_logs").insert([
         {
           surah_id: surah.id,
           user_name: userName,
           status: "completed",
           verse_start: 1,
           verse_end: surah.ayat,
-          khatmah_id: currentGroup.id,
+          group_id: currentGroup.id,
         },
       ]);
       updateStreak();
@@ -569,9 +583,9 @@ export default function App() {
 
   const leaveGroup = async (groupId) => {
     await supabase
-      .from("khatmah_members")
+      .from("group_members")
       .delete()
-      .eq("khatmah_id", groupId)
+      .eq("group_id", groupId)
       .eq("user_name", userName);
     setcurrentGroup(null);
     fetchData();
@@ -684,60 +698,66 @@ export default function App() {
           <div className="relative min-h-screen max-w-3xl mx-auto flex flex-col p-4 sm:p-8">
             <Dashboard
               userName={userName}
-              myKhatmats={myKhatmats}
+              myGroups={myGroups}
               setcurrentGroup={setcurrentGroup}
               onLeaveGroup={leaveGroup}
               onLogout={() => {
-                console.log(1);
+                setUserName("");
+                localStorage.removeItem("إسم_الحساب");
                 showToastMsg(
                   `إلى اللقاء يا ${userName} 👋`,
                   "normal",
                   "في رعاية الله وحفظه، ننتظرك قريباً",
                 );
-
-                // بنستنى ثانية ونص عشان يشوف الرسالة، وبعدين نمسح بياناته ونطلعه
-                setTimeout(() => {
-                  setUserName("");
-                  localStorage.removeItem("إسم_الحساب");
-                }, 1500);
               }}
-              onCreate={async (name) => {
+              onCreate={async (rawName, isPrivate) => {
                 if (!navigator.onLine)
                   return showToastMsg(
                     "لا يمكن إنشاء مجموعة",
                     "error",
                     "يجب أن تكون متصلاً بالإنترنت",
                   );
-                if (!name.trim())
+                if (!rawName || !rawName.trim())
                   return showToastMsg("يرجى كتابة اسم المجموعة", "warning");
-                if (name.trim().length > 30)
-                  return showToastMsg(
-                    "اسم المجموعة طويل جداً",
-                    "warning",
-                    "الحد الأقصى هو 30 حرف فقط",
-                  );
+
+                const name = rawName.trim().substring(0, 30);
 
                 try {
-                  const { data: check } = await supabase
-                    .from("khatmats")
-                    .select("id")
-                    .eq("name", name.trim());
-                  if (check && check.length > 0)
-                    return showToastMsg(
-                      "هذا الاسم موجود بالفعل",
-                      "error",
-                      "اختر اسماً آخر للمجموعة",
-                    );
+                  if (!isPrivate) {
+                    const { data: check } = await supabase
+                      .from("groups")
+                      .select("id")
+                      .eq("name", name)
+                      .eq("is_private", false);
+                    if (check && check.length > 0)
+                      return showToastMsg(
+                        "هذا الاسم موجود كمجموعة عامة",
+                        "error",
+                        "اختر اسماً آخر",
+                      );
+                  }
 
                   const { data, error } = await supabase
-                    .from("khatmats")
-                    .insert([{ name: name.trim(), creator_name: userName }])
+                    .from("groups")
+                    .insert([
+                      {
+                        name: name,
+                        creator_name: userName,
+                        is_private: isPrivate,
+                      },
+                    ])
                     .select();
+
                   if (error) throw error;
                   if (data && data[0]) {
+                    await fetchData(); // 👈 استدعاء التحديث هنا قبل الدخول
                     setcurrentGroup(data[0]);
-                    fetchData();
-                    showToastMsg(`تم إنشاء مجموعة "${name}" بنجاح!`, "success");
+                    showToastMsg(
+                      isPrivate
+                        ? `تم إنشاء ختمتك الخاصة "${name}" 🔒`
+                        : `تم إنشاء المجموعة العامة "${name}" 🌍`,
+                      "success",
+                    );
                   }
                 } catch (err) {
                   console.error("Create Error:", err.message);
@@ -752,41 +772,45 @@ export default function App() {
                   );
                 if (!name.trim())
                   return showToastMsg("يرجى كتابة اسم المجموعة", "warning");
-                if (name.trim().length > 30)
-                  return showToastMsg(
-                    "اسم المجموعة طويل جداً",
-                    "warning",
-                    "الحد الأقصى هو 30 حرف فقط",
-                  );
 
                 try {
-                  const { data: groups, error: gErr } = await supabase
-                    .from("khatmats")
+                  const { data: groupsData, error: gErr } = await supabase
+                    .from("groups")
                     .select("*")
-                    .eq("name", name.trim());
+                    .eq("name", name.trim())
+                    .eq("is_private", false);
                   if (gErr) throw gErr;
-                  if (!groups || groups.length === 0)
+
+                  if (!groupsData || groupsData.length === 0)
                     return showToastMsg(
-                      "لم يتم العثور على مجموعة بهذا الاسم",
+                      "عذراً، لم نجد مجموعة عامة بهذا الاسم",
                       "error",
+                      "تأكد من الاسم أو قد تكون مجموعة خاصة 🔒",
                     );
 
-                  const target = groups[0];
+                  const target = groupsData[0];
                   const { data: memberCheck } = await supabase
-                    .from("khatmah_members")
+                    .from("group_members")
                     .select("*")
-                    .eq("khatmah_id", target.id)
+                    .eq("group_id", target.id)
                     .eq("user_name", userName);
+
                   if (!memberCheck || memberCheck.length === 0) {
-                    await supabase
-                      .from("khatmah_members")
-                      .insert([{ khatmah_id: target.id, user_name: userName }]);
+                    const { error: insErr } = await supabase
+                      .from("group_members")
+                      .insert([{ group_id: target.id, user_name: userName }]);
+                    if (insErr) throw insErr; // رمي الخطأ لو فشل الانضمام
                   }
+
+                  await fetchData(); // 👈 استدعاء التحديث هنا قبل الدخول عشان تتأكد إنها اتضافت بره
                   setcurrentGroup(target);
-                  fetchData();
                   showToastMsg(`تم الانضمام إلى مجموعة "${name}"!`, "success");
                 } catch (err) {
                   console.error("Join Error:", err.message);
+                  showToastMsg(
+                    "حدث خطأ أثناء الانضمام، تأكد من الاتصال وجرب مرة أخرى",
+                    "error",
+                  );
                 }
               }}
             />
@@ -831,6 +855,16 @@ export default function App() {
                         className={`font-black text-xl sm:text-2xl font-serif tracking-tight ${theme === "dark" ? "text-[#ffb900]" : "text-emerald-700"}`}
                       >
                         {currentGroup.name}
+                        {currentGroup.is_private && (
+                          <Lock
+                            size={20}
+                            className={
+                              theme === "dark"
+                                ? "text-[#ffb900]"
+                                : "text-emerald-600"
+                            }
+                          />
+                        )}
                       </h1>
                       <Info
                         size={16}
@@ -957,7 +991,7 @@ export default function App() {
                   status: "reading",
                   verse_start: r.start,
                   verse_end: r.end,
-                  khatmah_id: currentGroup.id,
+                  group_id: currentGroup.id,
                 }));
                 if (inserts.length > 0) {
                   // 👇 هنا استخدمنا الدالة الذكية بدال Supabase المباشر اللي كان بيكراش
@@ -974,7 +1008,7 @@ export default function App() {
                   ...i,
                   user_name: userName,
                   status: "reading",
-                  khatmah_id: currentGroup.id,
+                  group_id: currentGroup.id,
                 }));
                 if (enriched.length > 0) {
                   // 👇 وهنا كمان الدالة الذكية
@@ -998,7 +1032,7 @@ export default function App() {
                   );
                   return;
                 }
-                await supabase.from("khatmah_logs").delete().eq("id", id);
+                await supabase.from("nasaq_logs").delete().eq("id", id);
                 fetchData();
               }}
               onDeleteAll={async () => {
@@ -1011,7 +1045,7 @@ export default function App() {
                 }
                 if (window.confirm("حذف كل قراءاتك؟")) {
                   await supabase
-                    .from("khatmah_logs")
+                    .from("nasaq_logs")
                     .delete()
                     .match({ surah_id: selected.id, user_name: userName });
                   fetchData();
@@ -1053,7 +1087,21 @@ export default function App() {
                       <X size={20} />
                     </button>
                   </div>
-
+                  <div
+                    className={`p-4 rounded-2xl border flex items-center justify-center gap-2 font-black mb-6 relative z-10 ${currentGroup.is_private ? (theme === "dark" ? "bg-amber-500/10 border-amber-500/20 text-amber-500" : "bg-amber-50 border-amber-200 text-amber-600") : theme === "dark" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-600"}`}
+                  >
+                    {currentGroup.is_private ? (
+                      <>
+                        <Lock size={18} />
+                        <span>هذه ختمة شخصية (خاصة بك فقط 🔒)</span>
+                      </>
+                    ) : (
+                      <>
+                        <Globe size={18} />
+                        <span>هذه مجموعة عامّة (متاحة للانضمام 🌍)</span>
+                      </>
+                    )}
+                  </div>
                   <div className="space-y-6 relative z-10">
                     <div
                       className={`p-5 rounded-3xl border flex justify-between items-center shadow-sm ${theme === "dark" ? "bg-emerald-900/30 border-emerald-500/10" : "bg-slate-50/80 border-slate-200"}`}
@@ -1167,9 +1215,9 @@ export default function App() {
                         theme={theme}
                         onConfirm={async () => {
                           await supabase
-                            .from("khatmah_logs")
+                            .from("nasaq_logs")
                             .delete()
-                            .eq("khatmah_id", currentGroup.id)
+                            .eq("group_id", currentGroup.id)
                             .eq("user_name", userName);
                           fetchData();
                           setShowGroupInfo(false);
@@ -1185,9 +1233,9 @@ export default function App() {
 
                             if (userInput === currentGroup.name) {
                               await supabase
-                                .from("khatmah_logs")
+                                .from("nasaq_logs")
                                 .delete()
-                                .eq("khatmah_id", currentGroup.id);
+                                .eq("group_id", currentGroup.id);
                               fetchData();
                               setShowGroupInfo(false);
                               alert("تم تصفير قراءات المجموعة بالكامل بنجاح.");

@@ -13,11 +13,13 @@ import {
   RefreshCw,
   Highlighter,
   Layers,
+  Globe,
+  Lock,
 } from "lucide-react";
 
 export default function Dashboard({
   userName,
-  myKhatmats,
+  myGroups,
   setcurrentGroup,
   onLeaveGroup,
   onCreate,
@@ -61,6 +63,8 @@ export default function Dashboard({
   const [holdProgress, setHoldProgress] = useState(0);
   const intervalRef = useRef(null);
   const groupDelayRef = useRef(null);
+  const [createName, setCreateName] = useState("");
+  const [isPrivateGroup, setIsPrivateGroup] = useState(false);
 
   // //! نظام السلايدر للخروج من المجموعة بعد حل مشكلة التكرار
   const startGroupHold = (group) => {
@@ -113,6 +117,7 @@ export default function Dashboard({
     setHoldProgress(0);
     setHoldingGroupId(null);
   };
+
   return (
     <div className="p-6 text-right max-w-2xl mx-auto">
       <header className="flex flex-row justify-between items-center mb-12">
@@ -159,7 +164,7 @@ export default function Dashboard({
           <ChevronDown className="rotate-90 text-slate-300" />
         </button>
 
-        {myKhatmats?.map((k) => (
+        {myGroups?.map((k) => (
           <button
             key={k.id}
             onClick={() => {
@@ -179,15 +184,21 @@ export default function Dashboard({
             )}
 
             <div className="flex flex-row-reverse items-center gap-5 relative z-10">
-              <div className="bg-emerald-500/5 p-5 rounded-3xl">
-                <Users size={28} className="text-emerald-500" />
+              <div
+                className={`p-5 rounded-3xl ${k.is_private ? "bg-amber-500/10" : "bg-emerald-500/5"}`}
+              >
+                {k.is_private ? (
+                  <Lock size={28} className="text-amber-500" />
+                ) : (
+                  <Globe size={28} className="text-emerald-500" />
+                )}
               </div>
               <div>
                 <h3 className="font-black font-serif text-xl sm:text-2xl mb-1">
                   {k.name}
                 </h3>
                 <p className="text-slate-500 text-xs sm:text-sm font-bold uppercase tracking-widest">
-                  أنشأها: {k.creator_name}
+                  أنشأها: {k.creator_name === userName ? "أنت" : k.creator_name}
                 </p>
               </div>
             </div>
@@ -196,43 +207,97 @@ export default function Dashboard({
         ))}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-12">
+          {/* قسم إنشاء مجموعة */}
           <div className="dark:bg-emerald-900/5 bg-white border border-dashed p-7 rounded-[2.5rem] border-inherit shadow-sm">
-            <input
-              maxLength={30}
-              value={nInp}
-              onKeyDown={(e) => e.key === "Enter" && onCreate(nInp)}
-              onChange={(e) => setNInp(e.target.value)}
-              placeholder="أكتب هنا إسم المجموعة المراد صنعها"
-              className="w-full bg-transparent border-b border-emerald-800/20 mb-6 p-2 text-center outline-none font-black text-sm sm:text-base"
-            />
-            <button
-              onClick={() => {
-                onCreate(nInp);
-                setNInp("");
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                onCreate(createName, isPrivateGroup);
+                setCreateName("");
+                setIsPrivateGroup(false);
               }}
-              className="w-full bg-emerald-700 text-white py-4 rounded-2xl font-black text-[0.7rem] sm:text-xs uppercase shadow-lg"
             >
-              إنشاء مجموعة
-            </button>
+              <div className="relative w-full">
+                <input
+                  type="text"
+                  maxLength={30}
+                  placeholder="اسم المجموعة المرجو إنشاؤها"
+                  value={createName}
+                  onChange={(e) => setCreateName(e.target.value)}
+                  className={`w-full p-4 pl-14 rounded-2xl border font-bold transition-all focus:outline-none focus:ring-2 ${
+                    theme === "dark"
+                      ? "bg-slate-800/50 border-slate-600 focus:ring-emerald-500 text-white placeholder-slate-400"
+                      : "bg-white border-slate-200 focus:ring-emerald-400 text-slate-800 placeholder-slate-400"
+                  }`}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setIsPrivateGroup(!isPrivateGroup)}
+                  title={isPrivateGroup ? "ختمة شخصية (خاصة)" : "مجموعة عامة"}
+                  className={`absolute left-2 top-1/2 -translate-y-1/2 p-2.5 rounded-xl transition-all active:scale-95 ${
+                    isPrivateGroup
+                      ? theme === "dark"
+                        ? "bg-amber-500/20 text-amber-400"
+                        : "bg-amber-100 text-amber-600"
+                      : theme === "dark"
+                        ? "bg-emerald-500/20 text-emerald-400"
+                        : "bg-emerald-100 text-emerald-600"
+                  }`}
+                >
+                  {isPrivateGroup ? <Lock size={20} /> : <Globe size={20} />}
+                </button>
+              </div>
+
+              <button
+                type="submit"
+                className={`w-full mt-4 p-4 rounded-2xl font-black text-white shadow-lg transition-all active:scale-95 ${
+                  theme === "dark"
+                    ? "bg-emerald-600 hover:bg-emerald-500"
+                    : "bg-emerald-500 hover:bg-emerald-400"
+                }`}
+              >
+                إنشاء المجموعة
+              </button>
+            </form>
           </div>
+
+          {/* قسم الانضمام لمجموعة */}
           <div className="dark:bg-emerald-900/5 bg-white border border-dashed p-7 rounded-[2.5rem] border-inherit shadow-sm">
-            <input
-              maxLength={30}
-              value={jInp}
-              onKeyDown={(e) => e.key === "Enter" && onJoin(jInp)}
-              onChange={(e) => setJInp(e.target.value)}
-              placeholder="أكتب هنا إسم المجموعة المراد الإنضمام لها"
-              className="w-full bg-transparent border-b border-emerald-800/20 mb-6 p-2 text-center outline-none font-black text-sm sm:text-base"
-            />
-            <button
-              onClick={() => {
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
                 onJoin(jInp);
                 setJInp("");
               }}
-              className="w-full bg-amber-500 text-white py-4 rounded-2xl font-black text-[0.7rem] sm:text-xs uppercase shadow-lg"
             >
-              الإنضمام لمجموعة
-            </button>
+              <div className="relative w-full">
+                <input
+                  type="text"
+                  maxLength={30}
+                  value={jInp}
+                  onChange={(e) => setJInp(e.target.value)}
+                  placeholder="اسم المجموعة المراد الانضمام لها"
+                  // 👇 نفس الستايل بالظبط بس شيلنا pl-14
+                  className={`w-full p-4 rounded-2xl border font-bold transition-all focus:outline-none focus:ring-2 ${
+                    theme === "dark"
+                      ? "bg-slate-800/50 border-slate-600 focus:ring-amber-500 text-white placeholder-slate-400"
+                      : "bg-white border-slate-200 focus:ring-amber-400 text-slate-800 placeholder-slate-400"
+                  }`}
+                />
+              </div>
+              <button
+                type="submit"
+                // 👇 خلينا الزرار ياخد نفس حجم وخط زرار الإنشاء بالظبط (p-4)
+                className={`w-full mt-4 p-4 rounded-2xl font-black text-white shadow-lg transition-all active:scale-95 ${
+                  theme === "dark"
+                    ? "bg-amber-600 hover:bg-amber-500"
+                    : "bg-amber-500 hover:bg-amber-400"
+                }`}
+              >
+                الإنضمام لمجموعة
+              </button>
+            </form>
           </div>
         </div>
       </div>

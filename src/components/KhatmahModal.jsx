@@ -5,6 +5,7 @@ import {
   useMemo,
   useEffect,
   useLayoutEffect,
+  useCallback,
 } from "react";
 import { createPortal } from "react-dom";
 import { FontContext } from "../FontContext";
