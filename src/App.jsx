@@ -129,6 +129,7 @@ export default function App() {
   });
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showOnlineBadge, setShowOnlineBadge] = useState(false);
+  const [showOfflineBadge, setShowOfflineBadge] = useState(!navigator.onLine); // 👈 دي الحالة الجديدة
 
   const showToastMsg = useCallback(
     (message, type = "normal", subMessage = "") => {
@@ -416,25 +417,38 @@ export default function App() {
   }, [fetchData]);
   // 👇 ================== نظام المزامنة المتأخرة (Offline Sync) ================== 👇
   const syncOfflineLogs = useCallback(async () => {
-    const queue = JSON.parse(
-      localStorage.getItem("nasaq-offline-queue") || "[]",
-    );
+    const queueText = localStorage.getItem("nasaq-offline-queue");
+    if (!queueText) return;
+    const queue = JSON.parse(queueText);
     if (queue.length === 0) return;
 
     try {
-      const { error } = await supabase.from("nasaq_logs").insert(queue);
+      // تنظيف الداتا عشان السيرفر ميرفضهاش
+      const cleanQueue = queue.map((q) => ({
+        surah_id: q.surah_id,
+        user_name: q.user_name,
+        status: q.status,
+        verse_start: q.verse_start,
+        verse_end: q.verse_end,
+        group_id: q.group_id,
+      }));
+
+      const { error } = await supabase.from("nasaq_logs").insert(cleanQueue);
       if (!error) {
         localStorage.removeItem("nasaq-offline-queue");
         fetchData();
-        showToastMsg("تمت مزامنة قراءاتك المتأخرة بنجاح! ☁️", "success"); // 👈 Toast للنجاح
-      }
+        showToastMsg("تمت مزامنة قراءاتك المتأخرة بنجاح! ☁️", "success");
+      } else throw error;
     } catch (err) {
       console.error("فشل المزامنة المتأخرة", err);
     }
   }, [fetchData, showToastMsg]);
 
-  // مراقب ذكي للشبكة (عشان يظهر ويخفي الشارات)
   useEffect(() => {
+    if (!navigator.onLine) {
+      setTimeout(() => setShowOfflineBadge(false), 10000); // إخفاء بعد 5 ثواني لو بدأ أوفلاين
+    }
+
     const handleOnline = () => {
       setIsOnline(true);
       showToastMsg(
@@ -446,12 +460,15 @@ export default function App() {
     };
     const handleOffline = () => {
       setIsOnline(false);
+      setShowOfflineBadge(true);
+      setTimeout(() => setShowOfflineBadge(false), 5000); // 👈 إخفاء بعد 5 ثواني
       showToastMsg(
         "أنت غير متّصل بالإنترنت",
         "warning",
         "سيتم تحديث الموقع عند رجوع الإتصال",
       );
     };
+
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
     if (navigator.onLine) syncOfflineLogs();
@@ -541,7 +558,6 @@ export default function App() {
     setLoading(true);
 
     if (action === "undo") {
-      // 👇 حماية الحذف أوفلاين
       if (!navigator.onLine) {
         showToastMsg(
           "عذراً، إلغاء الختمة يحتاج إلى اتصال بالإنترنت",
@@ -564,7 +580,8 @@ export default function App() {
         setLoading(false);
         return;
       }
-      await supabase.from("nasaq_logs").insert([
+      // 👇 استخدام دالة الحفظ الذكية بدل الرفع المباشر
+      await safeInsertLogs([
         {
           surah_id: surah.id,
           user_name: userName,
@@ -574,7 +591,6 @@ export default function App() {
           group_id: currentGroup.id,
         },
       ]);
-      updateStreak();
     }
 
     fetchData();
@@ -1263,28 +1279,14 @@ export default function App() {
           </div>
         )}
       </div>
-      {!isOnline && (
+      {!isOnline && showOfflineBadge && (
         <div
-          className={`fixed top-4 right-4 sm:top-6 sm:right-6 z-[9998] flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border shadow-sm animate-pulse backdrop-blur-md transition-all ${theme === "dark" ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-red-50 text-red-600 border-red-200"}`}
+          className={`fixed top-4 right-4 sm:top-6 sm:right-6 z-[9998] flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full border shadow-sm animate-in fade-in slide-in-from-right backdrop-blur-md transition-all ${theme === "dark" ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-red-50 text-red-600 border-red-200"}`}
         >
-          <WifiOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          <span className="text-[0.65rem] sm:text-xs font-black uppercase tracking-wider">
-            أنت غير متّصل بالإنترنت <br />
-            سيتم تحديث الموقع عند رجوع الإتصال
-          </span>
+          <WifiOff className="w-5 h-5 sm:w-6 sm:h-6" />
         </div>
       )}
       {/* 🟢 مؤشر عودة الاتصال (أونلاين) - بيظهر 4 ثواني ويختفي */}
-      {showOnlineBadge && (
-        <div
-          className={`fixed top-4 right-4 sm:top-6 sm:right-6 z-[9998] flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border shadow-sm animate-in fade-in slide-in-from-right backdrop-blur-md transition-all ${theme === "dark" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-emerald-50 text-emerald-600 border-emerald-200"}`}
-        >
-          <Wifi className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          <span className="text-[0.65rem] sm:text-xs font-black uppercase tracking-wider">
-            متصل
-          </span>
-        </div>
-      )}
       {/* 💬 الـ Toast الذكي للرسائل (بينزل من النص فوق) */}
       {toast.show && (
         <div

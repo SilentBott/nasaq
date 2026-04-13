@@ -219,6 +219,7 @@ export default function KhatmahModal({
   const [isSnapping, setIsSnapping] = useState(false);
   const [isAnimatingTurn, setIsAnimatingTurn] = useState(false);
   const hasNavigatedRef = useRef(false);
+  const sliderRef = useRef(null);
   const surahPages = useMemo(() => {
     if (!selected || dataLoading) return [];
     const pages = [
@@ -300,8 +301,11 @@ export default function KhatmahModal({
 
   const triggerSlide = (direction) => {
     if (isSnapping) return;
-    const gap = 20;
-    const moveDistance = window.innerWidth + gap;
+    // 👇 هنا السحر: بنقيس عرض المصحف الفعلي مش عرض الشاشة
+    const containerWidth = sliderRef.current
+      ? sliderRef.current.offsetWidth
+      : window.innerWidth;
+    const moveDistance = containerWidth + 20;
     setIsSnapping(true);
     setSwipeOffset(direction === "next" ? moveDistance : -moveDistance);
 
@@ -309,7 +313,7 @@ export default function KhatmahModal({
       setIsSnapping(false);
       setSwipeOffset(0);
       turnPage(direction);
-    }, 300);
+    }, 150);
   };
 
   const handlePrevPage = () => {
@@ -328,9 +332,8 @@ export default function KhatmahModal({
 
   const onTouchMove = (e) => {
     if (!touchStart || isSnapping) return;
-    const diff = e.targetTouches[0].clientX - touchStart;
+    let diff = e.targetTouches[0].clientX - touchStart;
 
-    // 👇 تحديث الحواجز للسماح بالعبور ماعدا عند الفاتحة والناس
     if (
       diff > 0 &&
       currentPageIndex === surahPages.length - 1 &&
@@ -338,6 +341,14 @@ export default function KhatmahModal({
     )
       return;
     if (diff < 0 && currentPageIndex === 0 && selected.id === 1) return;
+
+    // 👇 تحديد أقصى سحبة بناءً على عرض المصحف
+    const containerWidth = sliderRef.current
+      ? sliderRef.current.offsetWidth
+      : window.innerWidth;
+    const maxDrag = containerWidth + 20;
+    if (diff > maxDrag) diff = maxDrag;
+    if (diff < -maxDrag) diff = -maxDrag;
 
     setSwipeOffset(diff);
   };
@@ -347,8 +358,12 @@ export default function KhatmahModal({
     setIsDragging(false);
     if (!touchStart) return;
 
-    const moveDistance = window.innerWidth + 20;
-    const threshold = window.innerWidth * 0.35;
+    // 👇 تحديد نقطة الحسم بناءً على عرض المصحف
+    const containerWidth = sliderRef.current
+      ? sliderRef.current.offsetWidth
+      : window.innerWidth;
+    const moveDistance = containerWidth + 20;
+    const threshold = containerWidth * 0.1;
     setIsSnapping(true);
 
     if (
@@ -360,7 +375,7 @@ export default function KhatmahModal({
         setIsSnapping(false);
         setSwipeOffset(0);
         turnPage("next");
-      }, 300);
+      }, 150);
     } else if (
       swipeOffset < -threshold &&
       (currentPageIndex > 0 || selected.id > 1)
@@ -373,7 +388,7 @@ export default function KhatmahModal({
       }, 300);
     } else {
       setSwipeOffset(0);
-      setTimeout(() => setIsSnapping(false), 300);
+      setTimeout(() => setIsSnapping(false), 150);
     }
   };
   const onMouseDown = (e) =>
@@ -779,6 +794,7 @@ export default function KhatmahModal({
                   </div>
 
                   <div
+                    ref={sliderRef}
                     className={`relative touch-pan-y w-full border-y-2 sm:border-y-4 rounded-[1.5rem] sm:rounded-[2.5rem] overflow-hidden ${theme === "dark" ? "border-emerald-900/50 bg-[#042f24]" : "border-amber-100 bg-white"}`}
                     // أحداث اللمس للموبايل
                     onTouchStart={!continuousReading ? onTouchStart : undefined}
@@ -798,7 +814,7 @@ export default function KhatmahModal({
                       style={{
                         transform: `translateX(${swipeOffset}px)`,
                         transition: isSnapping
-                          ? "transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)"
+                          ? "transform 0.15s cubic-bezier(0.25, 1, 0.5, 1)"
                           : "none",
                       }}
                     >
@@ -809,7 +825,10 @@ export default function KhatmahModal({
                             className="absolute top-0 w-full"
                             style={{ left: "calc(100% + 20px)" }}
                           >
-                            <div className="w-full py-3 px-2 sm:px-6">
+                            <div
+                              className="w-full flex-shrink-0 min-w-full py-3 px-2 sm:px-6"
+                              style={{ containerType: "inline-size" }}
+                            >
                               <div
                                 className={`text-justify font-['Amiri_Quran'] ${theme === "dark" ? "text-emerald-50" : "text-slate-900"} transition-all`}
                                 style={{
@@ -873,7 +892,10 @@ export default function KhatmahModal({
                             className="absolute top-0 w-full"
                             style={{ right: "calc(100% + 20px)" }}
                           >
-                            <div className="w-full py-3 px-2 sm:px-6">
+                            <div
+                              className="w-full flex-shrink-0 min-w-full py-3 px-2 sm:px-6"
+                              style={{ containerType: "inline-size" }}
+                            >
                               <div
                                 className={`text-justify font-['Amiri_Quran'] ${theme === "dark" ? "text-emerald-50" : "text-slate-900"} transition-all`}
                                 style={{
