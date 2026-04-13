@@ -336,17 +336,29 @@ export default function Dashboard({
                   >
                     الرواية الحالية
                   </span>
-                  <button
-                    onClick={() =>
-                      setRiwaya(
-                        riwayas[(riwayas.indexOf(riwaya) + 1) % riwayas.length],
-                      )
-                    }
-                    className="w-full bg-amber-500 text-emerald-950 py-3.5 rounded-2xl font-black text-xs sm:text-sm shadow-md hover:bg-amber-400 transition-all active:scale-95"
-                  >
-                    <RefreshCw size={14} className="inline ml-1.5" />
-                    {riwayaAr[riwaya]}
-                  </button>
+
+                  {/* 👇 قائمة الروايات المنسدلة الجديدة (Dropdown) 👇 */}
+                  <div className="relative w-full">
+                    <select
+                      value={riwaya}
+                      onChange={(e) => setRiwaya(e.target.value)}
+                      className="w-full appearance-none bg-amber-500 text-emerald-950 py-3.5 px-4 rounded-2xl font-black text-xs sm:text-sm shadow-md hover:bg-amber-400 transition-all outline-none cursor-pointer text-center"
+                    >
+                      {riwayas.map((r) => (
+                        <option
+                          key={r}
+                          value={r}
+                          className="bg-white text-slate-800 font-bold"
+                        >
+                          {riwayaAr[r]}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown
+                      size={18}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-950"
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div

@@ -22,16 +22,8 @@ export default defineConfig({
         start_url: "/nasaq/",
         orientation: "portrait",
         icons: [
-          {
-            src: "pwa-192x192.png",
-            sizes: "192x192",
-            type: "image/png",
-          },
-          {
-            src: "pwa-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
-          },
+          { src: "pwa-192x192.png", sizes: "192x192", type: "image/png" },
+          { src: "pwa-512x512.png", sizes: "512x512", type: "image/png" },
           {
             src: "pwa-512x512.png",
             sizes: "512x512",
@@ -42,4 +34,25 @@ export default defineConfig({
       },
     }),
   ],
+  // 👇 السر هنا: تقسيم الملفات عشان التحميل يبقى صاروخ
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (id.includes("react") || id.includes("react-dom")) {
+              return "react-vendor"; // مكتبات ريأكت لوحدها
+            }
+            if (id.includes("@supabase")) {
+              return "supabase-vendor"; // قاعدة البيانات لوحدها
+            }
+            if (id.includes("lucide-react")) {
+              return "icons-vendor"; // الأيقونات لوحدها
+            }
+            return "vendor"; // باقي الحاجات
+          }
+        },
+      },
+    },
+  },
 });

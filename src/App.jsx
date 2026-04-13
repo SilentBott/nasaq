@@ -280,6 +280,8 @@ export default function App() {
   }, [selected, quickRegister, showGroupInfo, view, exitToast]);
 
   useEffect(() => {
+    if (!userName) return;
+
     async function loadQuran() {
       setDataLoading(true);
       try {
@@ -292,7 +294,7 @@ export default function App() {
       }
     }
     loadQuran();
-  }, [riwaya]);
+  }, [riwaya, userName]);
 
   useEffect(() => {
     const handleEsc = (e) => {
@@ -329,14 +331,12 @@ export default function App() {
 
       const ids = (members || []).map((m) => m.group_id);
 
-      // 1. نجيب المجموعات اللي اليوزر أنشأها بنفسه (بدون دالة .or اللي كانت بتهنج)
       const { data: createdGroups, error: err2 } = await supabase
         .from("groups")
         .select("*")
         .eq("creator_name", userName);
       if (err2) throw err2;
 
-      // 2. نجيب المجموعات اللي اليوزر اشترك فيها
       let joinedGroups = [];
       if (ids.length > 0) {
         const { data: jGroups, error: err3 } = await supabase
@@ -347,13 +347,10 @@ export default function App() {
         joinedGroups = jGroups || [];
       }
 
-      // 3. ندمج القائمتين ونشيل المكرر
       const allGroups = [...(createdGroups || []), ...joinedGroups];
       const uniqueGroups = Array.from(
         new Map(allGroups.map((item) => [item.id, item])).values(),
       );
-
-      // 4. ترتيب عشان الأحدث يظهر الأول
       uniqueGroups.sort(
         (a, b) => new Date(b.created_at) - new Date(a.created_at),
       );
@@ -364,50 +361,60 @@ export default function App() {
         JSON.stringify(uniqueGroups),
       );
 
-      if (currentGroup && currentGroup.id) {
-        const { data, error: err4 } = await supabase
+      // 👇 تفعيل الختمة الشخصية بذكاء
+      if (currentGroup) {
+        let query = supabase
           .from("nasaq_logs")
           .select("*")
-          .eq("group_id", currentGroup.id)
           .order("created_at", { ascending: true });
+
+        if (currentGroup.id) {
+          query = query.eq("group_id", currentGroup.id);
+        } else {
+          query = query.is("group_id", null).eq("user_name", userName); // 👈 الدعم السحري لـ Null
+        }
+
+        const { data, error: err4 } = await query;
         if (err4) throw err4;
 
-        localStorage.setItem(
-          `nasaq-logs-${currentGroup.id}`,
-          JSON.stringify(data || []),
-        );
+        const cacheKey = currentGroup.id
+          ? `nasaq-logs-${currentGroup.id}`
+          : `nasaq-logs-personal-${userName}`;
+        localStorage.setItem(cacheKey, JSON.stringify(data || []));
 
         const queue = JSON.parse(
           localStorage.getItem("nasaq-offline-queue") || "[]",
         );
-        const offlineLogs = queue.filter((q) => q.group_id === currentGroup.id);
+        const offlineLogs = queue.filter((q) =>
+          currentGroup.id ? q.group_id === currentGroup.id : !q.group_id,
+        );
         setLogs([...(data || []), ...offlineLogs]);
       } else {
         setLogs([]);
       }
     } catch (err) {
       console.warn("وضع عدم الاتصال مُفعل، جاري استرجاع البيانات المحلية...");
-
       const cachedGroups = JSON.parse(
         localStorage.getItem(`nasaq-groups-${userName}`) || "[]",
       );
       setMyGroups(cachedGroups);
 
-      if (currentGroup && currentGroup.id) {
-        const cachedLogs = JSON.parse(
-          localStorage.getItem(`nasaq-logs-${currentGroup.id}`) || "[]",
-        );
+      if (currentGroup) {
+        const cacheKey = currentGroup.id
+          ? `nasaq-logs-${currentGroup.id}`
+          : `nasaq-logs-personal-${userName}`;
+        const cachedLogs = JSON.parse(localStorage.getItem(cacheKey) || "[]");
         const queue = JSON.parse(
           localStorage.getItem("nasaq-offline-queue") || "[]",
         );
-        const offlineLogs = queue.filter((q) => q.group_id === currentGroup.id);
+        const offlineLogs = queue.filter((q) =>
+          currentGroup.id ? q.group_id === currentGroup.id : !q.group_id,
+        );
 
-        setLogs(() => {
-          return [
-            ...cachedLogs,
-            ...offlineLogs.map((o) => ({ ...o, isOffline: true })),
-          ];
-        });
+        setLogs([
+          ...cachedLogs,
+          ...offlineLogs.map((o) => ({ ...o, isOffline: true })),
+        ]);
       }
     }
   }, [userName, currentGroup]);
@@ -567,20 +574,25 @@ export default function App() {
         return;
       }
 
-      await supabase
+      // 👇 مسح أي داتا تخص السورة دي بالكامل
+      let query = supabase
         .from("nasaq_logs")
         .delete()
         .eq("surah_id", surah.id)
-        .eq("user_name", userName)
-        .eq("status", "completed")
-        .eq("group_id", currentGroup.id);
+        .eq("user_name", userName);
+
+      if (currentGroup.id) {
+        query = query.eq("group_id", currentGroup.id);
+      } else {
+        query = query.is("group_id", null);
+      }
+      await query;
     } else {
       const sLogs = (logs || []).filter((l) => l.surah_id === surah.id);
       if (getUniqueVersesCount(sLogs) >= surah.ayat) {
         setLoading(false);
         return;
       }
-      // 👇 استخدام دالة الحفظ الذكية بدل الرفع المباشر
       await safeInsertLogs([
         {
           surah_id: surah.id,
@@ -588,7 +600,7 @@ export default function App() {
           status: "completed",
           verse_start: 1,
           verse_end: surah.ayat,
-          group_id: currentGroup.id,
+          group_id: currentGroup.id || null, // 👈 دعم الختمة الشخصية
         },
       ]);
     }
@@ -668,7 +680,7 @@ export default function App() {
         getUniqueVersesCount,
       }}
     >
-      <div
+      <main
         dir="rtl"
         className={`min-h-screen overflow-x-hidden w-full transition-all ${theme === "dark" ? "bg-[#042f24] text-white" : "bg-emerald-50 text-slate-900"}`}
       >
@@ -1007,10 +1019,9 @@ export default function App() {
                   status: "reading",
                   verse_start: r.start,
                   verse_end: r.end,
-                  group_id: currentGroup.id,
+                  group_id: currentGroup.id || null, // 👈 التعديل هنا
                 }));
                 if (inserts.length > 0) {
-                  // 👇 هنا استخدمنا الدالة الذكية بدال Supabase المباشر اللي كان بيكراش
                   await safeInsertLogs(inserts);
                 }
                 fetchData();
@@ -1024,10 +1035,9 @@ export default function App() {
                   ...i,
                   user_name: userName,
                   status: "reading",
-                  group_id: currentGroup.id,
+                  group_id: currentGroup.id || null, // 👈 وهنا كمان
                 }));
                 if (enriched.length > 0) {
-                  // 👇 وهنا كمان الدالة الذكية
                   await safeInsertLogs(enriched);
                   if (navigator.onLine)
                     showToastMsg(
@@ -1040,17 +1050,6 @@ export default function App() {
                 setSelected(null);
                 setQuickRegister(false);
               }}
-              onDeleteRange={async (id) => {
-                if (!navigator.onLine) {
-                  showToastMsg(
-                    "عذراً، الحذف يحتاج إلى اتصال بالإنترنت",
-                    "warning",
-                  );
-                  return;
-                }
-                await supabase.from("nasaq_logs").delete().eq("id", id);
-                fetchData();
-              }}
               onDeleteAll={async () => {
                 if (!navigator.onLine) {
                   showToastMsg(
@@ -1060,10 +1059,19 @@ export default function App() {
                   return;
                 }
                 if (window.confirm("حذف كل قراءاتك؟")) {
-                  await supabase
+                  let query = supabase
                     .from("nasaq_logs")
                     .delete()
-                    .match({ surah_id: selected.id, user_name: userName });
+                    .eq("surah_id", selected.id)
+                    .eq("user_name", userName);
+
+                  if (currentGroup.id) {
+                    query = query.eq("group_id", currentGroup.id);
+                  } else {
+                    query = query.is("group_id", null); // 👈 وهنا كمان
+                  }
+
+                  await query;
                   fetchData();
                   setSelected(null);
                 }
@@ -1278,7 +1286,7 @@ export default function App() {
             )}
           </div>
         )}
-      </div>
+      </main>
       {!isOnline && showOfflineBadge && (
         <div
           className={`fixed top-4 right-4 sm:top-6 sm:right-6 z-[9998] flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full border shadow-sm animate-in fade-in slide-in-from-right backdrop-blur-md transition-all ${theme === "dark" ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-red-50 text-red-600 border-red-200"}`}

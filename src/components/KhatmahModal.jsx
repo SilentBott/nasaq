@@ -258,6 +258,7 @@ export default function KhatmahModal({
   }, [selected, quranData, surahPages, vRanges]);
   useEffect(() => {
     hasNavigatedRef.current = false; // تصفير لما نختار سورة جديدة
+    setCurrentPageIndex(0);
   }, [selected]);
 
   // 👇 متغيرات التتبع العابر للسور
