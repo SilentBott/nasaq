@@ -17,6 +17,18 @@ export default function SurahCard({
   const [holdProgress, setHoldProgress] = useState(0);
   const [holdAction, setHoldAction] = useState(null);
 
+  // 👇 دالة تحويل الأرقام للغة العربية 👇
+  const toArabic = (num) =>
+    num.toString().replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[d]);
+
+  // 👇 دالة قواعد النحو (التمييز) للآيات 👇
+  const getAyatLabel = (num) => {
+    if (num >= 3 && num <= 10) return "آيات";
+    if (num === 2) return "آيتان";
+    if (num === 1) return "آية واحدة";
+    return "آية";
+  };
+
   if (!s) return null;
 
   const sLogs = (logs || []).filter((l) => l.surah_id === s.id);
@@ -41,23 +53,19 @@ export default function SurahCard({
     return [...new Set(sLogs.map((l) => l.user_name))];
   }, [sLogs, isCompleted]);
 
-  // //! نظام السلايدر بعد التعديل لمنع التكرار (الحسابات خارج الـ State)
   const startPress = () => {
     if (intervalRef.current || timeoutRef.current) return;
-
     isLongPress.current = false;
     const action = isCompleted ? "undo" : "complete";
     setHoldAction(action);
     setHoldProgress(0);
 
-    // ⏳ السحر هنا: هنستنى 200 ملي ثانية عشان نفلتر الضغطة العادية
     timeoutRef.current = setTimeout(() => {
       let currentVal = 0;
-      const step = 100 / (1500 / 50); // 1.5 ثانية
+      const step = 100 / (1500 / 50);
 
       intervalRef.current = setInterval(() => {
         currentVal += step;
-
         if (currentVal >= 100) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
@@ -85,7 +93,7 @@ export default function SurahCard({
           setHoldProgress(currentVal);
         }
       }, 50);
-    }, 200); // 👈 التأخير
+    }, 200);
   };
 
   const cancelPress = () => {
@@ -116,9 +124,8 @@ export default function SurahCard({
       onPointerLeave={cancelPress}
       onContextMenu={(e) => e.preventDefault()}
       {...props}
-      className={`relative p-6 pb-10 rounded-[2.5rem] border-2 transition-all active:scale-95 group overflow-hidden select-none touch-manipulation ${isCompleted ? "border-emerald-500 bg-emerald-500/10" : theme === "dark" ? "bg-emerald-900/10 border-emerald-800/30" : "bg-white border-emerald-100/80 shadow-sm hover:shadow-md"}`}
+      className={`relative p-3 pb-5 rounded-[2.5rem] border-2 transition-all active:scale-95 group overflow-hidden select-none touch-manipulation ${isCompleted ? "border-emerald-500 bg-emerald-500/10" : theme === "dark" ? "bg-emerald-900/10 border-emerald-800/30" : "bg-white border-emerald-100/80 shadow-sm hover:shadow-md"}`}
     >
-      {/* //! الأخضر من تحت لفوق للختم */}
       {holdProgress > 0 && holdAction === "complete" && (
         <div
           className="absolute bottom-0 left-0 right-0 bg-emerald-500/30 z-0 transition-all ease-linear duration-75"
@@ -126,7 +133,6 @@ export default function SurahCard({
         />
       )}
 
-      {/* //! الأحمر من فوق لتحت لإلغاء الختم بلملي صخر */}
       {holdProgress > 0 && holdAction === "undo" && (
         <div
           className="absolute top-0 left-0 right-0 bg-red-500/30 z-0 transition-all ease-linear duration-75"
@@ -138,11 +144,23 @@ export default function SurahCard({
         <span className="text-xs sm:text-sm font-black opacity-50 uppercase tracking-widest">
           {s.id}
         </span>
+
         <h3
           className={`font-black font-serif text-2xl sm:text-3xl group-hover:scale-110 transition-transform ${theme === "dark" ? "text-[#ffb900]" : "text-emerald-800"}`}
         >
           {s.name_ar}
         </h3>
+
+        {/* 👇 دمجنا الدالتين عشان يطلع التمييز النحوي صح مع الأرقام العربية 👇 */}
+        <span
+          dir="rtl"
+          className={`text-[0.65rem] sm:text-xs font-bold transition-all -mt-1 ${isCompleted ? (theme === "dark" ? "text-emerald-200/80" : "text-emerald-700/80") : theme === "dark" ? "text-emerald-100/50" : "text-slate-400"}`}
+        >
+          {progress > 0 && !isCompleted
+            ? `${toArabic(progress)} / ${toArabic(s.ayat)} ${getAyatLabel(s.ayat)}`
+            : `${toArabic(s.ayat)} ${getAyatLabel(s.ayat)}`}
+        </span>
+
         {isCompleted ? (
           <div className="flex flex-col items-center gap-1.5 animate-in zoom-in duration-500">
             <CheckCircle2 size={28} className="text-emerald-500" />
@@ -155,15 +173,8 @@ export default function SurahCard({
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2">
-            <div className="h-4 flex items-center mt-1">
-              <span
-                className={`text-xs sm:text-sm font-black ${theme === "dark" ? "text-emerald-500/70" : "text-emerald-600/80"}`}
-              >
-                {progress}/{s?.ayat}
-              </span>
-            </div>
             {activeReaders.length > 0 && (
-              <div className="flex flex-wrap justify-center gap-1.5 mt-2 animate-in fade-in">
+              <div className="flex flex-wrap justify-center gap-1.5 mt-1 animate-in fade-in">
                 {activeReaders.map((reader, idx) => (
                   <span
                     key={idx}
@@ -177,6 +188,7 @@ export default function SurahCard({
           </div>
         )}
       </div>
+
       <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-200/10 overflow-hidden z-10">
         <div
           className={`h-full transition-all duration-1000 ${theme === "dark" ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" : "bg-emerald-400"}`}

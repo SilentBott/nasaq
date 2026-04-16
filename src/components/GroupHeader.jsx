@@ -50,7 +50,7 @@ export default function GroupHeader({
             <span
               className={`font-bold text-[0.65rem] sm:text-xs ${theme === "dark" ? "text-emerald-100/50" : "text-slate-500"}`}
             >
-              رواية: حفص عن عاصم • {userName}
+              {userName}
             </span>
           </div>
         </div>

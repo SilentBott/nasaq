@@ -1,99 +1,207 @@
-import { Home, BookText } from "lucide-react";
+import {
+  Home,
+  BookText,
+  Users,
+  WifiOff,
+  Sparkles,
+  LineChart,
+  ShieldCheck,
+} from "lucide-react";
 
 export default function AboutView({ theme, onClose }) {
   const isDark = theme === "dark";
+
+  const features = [
+    {
+      icon: <Sparkles size={20} />,
+      title: "مزامنة لحظية (Real-time)",
+      desc: "تتحدث نسبة إنجاز المجموعة لحظياً لجميع الأعضاء، مما يخلق بيئة تنافسية وتفاعلية فريدة من نوعها.",
+    },
+    {
+      icon: <WifiOff size={20} />,
+      title: "قراءة بلا اتصال (Offline-First)",
+      desc: "اقرأ وسجل وردك في أي وقت حتى بدون إنترنت؛ سيقوم النظام بحفظ قراءاتك ومزامنتها تلقائياً فور عودة الاتصال.",
+    },
+    {
+      icon: <Users size={20} />,
+      title: "ختمات مخصصة",
+      desc: "أنشئ ختمتك الشخصية الخاصة، أو افتح مجموعة عامة ليتشارك معك الأصدقاء والعائلة في ختمة واحدة.",
+    },
+    {
+      icon: <ShieldCheck size={20} />,
+      title: "دخول فوري وخصوصية",
+      desc: "لا حاجة لإنشاء حساب معقد؛ ادخل كـ (ضيف) فورا، وسيتم ربط تقدمك بجهازك الحالي بأمان تام.",
+    },
+    {
+      icon: <LineChart size={20} />,
+      title: "إحصائيات ومتابعة دقيقة",
+      desc: "راقب تقدمك الفعلي (نسبة الإنجاز وعدد الآيات)، وحافظ على سلسلة التزامك اليومي (الشعلة).",
+    },
+  ];
+
   return (
-    <>
+    <div
+      className="fixed inset-0 z-[500] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6"
+      onClick={onClose}
+    >
       <style>{`.quran-scroll::-webkit-scrollbar { width: 4px; } .quran-scroll::-webkit-scrollbar-track { background: transparent; margin: 48px 0; } .quran-scroll::-webkit-scrollbar-thumb { background: #ffb900; border-radius: 10px; }`}</style>
+
       <div
         dir="rtl"
         onClick={(e) => e.stopPropagation()}
-        className={`w-full h-fit max-h-[85vh] overflow-y-auto quran-scroll p-8 ps-10 sm:p-12 sm:ps-14 rounded-[3rem] border text-right shadow-2xl relative z-10 ${isDark ? "bg-gradient-to-b from-[#064e3b] to-[#022a1d] border-emerald-700/40 text-emerald-50" : "bg-gradient-to-b from-emerald-50 to-white border-emerald-200 text-slate-800"}`}
+        className={`w-full max-w-lg h-fit max-h-[85vh] overflow-y-auto quran-scroll p-6 sm:p-10 rounded-[2.5rem] border text-right shadow-2xl relative z-10 ${
+          isDark
+            ? "bg-gradient-to-b from-[#064e3b] to-[#022a1d] border-emerald-700/40 text-emerald-50"
+            : "bg-gradient-to-b from-emerald-50 to-white border-emerald-200 text-slate-800"
+        }`}
       >
         {isDark && (
           <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl pointer-events-none -z-10"></div>
         )}
+
         <button
           onClick={onClose}
-          className={`absolute top-6 left-6 p-3 rounded-full active:scale-95 transition-all z-20 ${isDark ? "bg-red-500/10 text-red-400 hover:bg-red-500/20" : "bg-red-50 text-red-500 hover:bg-red-100"}`}
+          className={`absolute top-6 left-6 p-3 rounded-full active:scale-95 transition-all z-20 ${
+            isDark
+              ? "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+              : "bg-red-50 text-red-500 hover:bg-red-100"
+          }`}
         >
-          <Home size={22} />
+          <Home size={20} />
         </button>
-        <div className="flex flex-col items-center gap-4 mb-6 text-center relative z-10">
+
+        <div className="flex flex-col items-center gap-3 mb-8 text-center relative z-10 pt-4">
           <div
-            className={`p-5 rounded-full border shadow-inner ${isDark ? "bg-[#ffb900]/10 border-[#ffb900]/20" : "bg-emerald-100 border-emerald-200"}`}
+            className={`p-4 rounded-full border shadow-inner ${
+              isDark
+                ? "bg-[#ffb900]/10 border-[#ffb900]/20"
+                : "bg-emerald-100 border-emerald-200"
+            }`}
           >
             <BookText
-              size={48}
+              size={40}
               className={isDark ? "text-[#ffb900]" : "text-emerald-700"}
             />
           </div>
           <h2
-            className={`text-4xl font-black font-serif tracking-tighter ${isDark ? "text-[#ffb900]" : "text-emerald-800"}`}
+            className={`text-4xl font-black font-serif tracking-tighter ${
+              isDark ? "text-[#ffb900]" : "text-emerald-800"
+            }`}
           >
             نَسَق
           </h2>
-        </div>
-        <div className="space-y-4 text-sm sm:text-base font-bold leading-loose relative z-10">
-          <div
-            className={`p-6 rounded-3xl border shadow-sm ${isDark ? "bg-emerald-900/30 border-emerald-500/10" : "bg-white border-emerald-100"}`}
+          <p
+            className={`text-sm font-bold mt-2 ${isDark ? "text-emerald-200/70" : "text-emerald-700/70"}`}
           >
-            <p>
+            رفيقك الذكي في رحلة القرآن
+          </p>
+        </div>
+
+        <div className="space-y-3 text-sm sm:text-base font-bold relative z-10">
+          <div
+            className={`p-5 rounded-3xl border shadow-sm mb-6 ${
+              isDark
+                ? "bg-emerald-900/30 border-emerald-500/10"
+                : "bg-white border-emerald-100"
+            }`}
+          >
+            <p className="leading-loose">
               <span
-                className={`text-lg font-black ${isDark ? "text-[#ffb900]" : "text-emerald-700"}`}
+                className={`text-lg font-black ml-1 ${
+                  isDark ? "text-[#ffb900]" : "text-emerald-700"
+                }`}
               >
                 «نَسَق»
               </span>
-              هي منصة ذكية صُممت لتنظيم خِتمتك القرآنية، ومتابعة وردك اليومي
-              بيسر وسهولة، سواء كنت تقرأ بمفردك أو ضمن مجموعة.
+              هي منصة ذكية وحديثة صُممت لتنظيم خِتمتك القرآنية، وتيسير متابعة
+              وردك اليومي سواء كنت تقرأ بمفردك أو ضمن بيئة جماعية محفزة.
             </p>
           </div>
-          <div
-            className={`p-6 rounded-3xl border shadow-sm ${isDark ? "bg-emerald-900/30 border-emerald-500/10" : "bg-white border-emerald-100"}`}
+
+          <h3
+            className={`text-lg font-black mb-4 px-2 ${isDark ? "text-emerald-300" : "text-emerald-700"}`}
           >
-            <p>
-              يتيح لك النظام إنشاء مجموعات قراءة ومزامنة الإنجاز مع أصحابك
-              <span
-                className={`border-b border-dashed pb-1 ${isDark ? "text-amber-400 border-amber-400/50" : "text-emerald-600 border-emerald-600/50"}`}
+            ما يميز المنصة:
+          </h3>
+
+          <div className="space-y-3">
+            {features.map((feature, idx) => (
+              <div
+                key={idx}
+                className={`p-4 rounded-2xl border shadow-sm flex items-start gap-3 transition-all hover:scale-[1.01] ${
+                  isDark
+                    ? "bg-emerald-900/20 border-emerald-500/10 hover:bg-emerald-900/40"
+                    : "bg-white border-emerald-100 hover:bg-emerald-50"
+                }`}
               >
-                لحظياً
-              </span>
-              ، مما يعين على التنافس المحمود والالتزام المستمر.
-            </p>
+                <div
+                  className={`p-2 rounded-xl shrink-0 ${
+                    isDark
+                      ? "bg-[#ffb900]/10 text-[#ffb900]"
+                      : "bg-emerald-100 text-emerald-600"
+                  }`}
+                >
+                  {feature.icon}
+                </div>
+                <div>
+                  <h4
+                    className={`font-black text-sm sm:text-base mb-1 ${isDark ? "text-emerald-100" : "text-emerald-900"}`}
+                  >
+                    {feature.title}
+                  </h4>
+                  <p
+                    className={`text-[0.7rem] sm:text-sm leading-relaxed ${isDark ? "text-emerald-100/70" : "text-slate-600"}`}
+                  >
+                    {feature.desc}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
+
         <footer
-          className={`mt-8 pt-4 border-t text-center space-y-3 relative z-10 ${isDark ? "border-emerald-700/30" : "border-emerald-200"}`}
+          className={`mt-10 pt-6 border-t text-center space-y-4 relative z-10 ${
+            isDark ? "border-emerald-700/30" : "border-emerald-200"
+          }`}
         >
+          <div className="space-y-1">
+            <p
+              className={`text-[0.65rem] sm:text-xs opacity-70 font-black ${isDark ? "text-emerald-100" : "text-slate-500"}`}
+            >
+              تم استخراج الآيات وبيانات المصحف الشريف بالاعتماد على مشروع
+            </p>
+            <a
+              href="http://tanzil.net/"
+              target="_blank"
+              rel="noreferrer"
+              className={`inline-block text-[0.7rem] sm:text-xs font-black uppercase tracking-wider transition-all hover:-translate-y-0.5 ${isDark ? "text-[#ffb900] hover:text-amber-300" : "text-emerald-700 hover:text-emerald-500"}`}
+            >
+              Tanzil - Quran Navigator
+            </a>
+          </div>
+          <div className="space-y-1">
+            <p
+              className={`text-[0.65rem] sm:text-xs opacity-70 font-black ${isDark ? "text-emerald-100" : "text-slate-500"}`}
+            >
+              تصميم الأيقونة الرئيسية بواسطة
+            </p>
+            <a
+              href="https://www.vecteezy.com/"
+              target="_blank"
+              rel="noreferrer"
+              className={`inline-block text-[0.7rem] sm:text-xs font-black transition-all hover:-translate-y-0.5 ${isDark ? "text-[#ffb900] hover:text-amber-300" : "text-emerald-700 hover:text-emerald-500"}`}
+            >
+              Vecteezy.com
+            </a>
+          </div>
           <p
-            className={`text-[0.65rem] sm:text-xs opacity-60 font-black ${isDark ? "text-emerald-100" : "text-slate-500"}`}
-          >
-            تم البحث عن الآيات بمساعدة ملفات
-          </p>
-          <a
-            href="http://tanzil.net/"
-            target="_blank"
-            rel="noreferrer"
-            className={`inline-block text-[0.7rem] sm:text-xs opacity-70 hover:opacity-100 transition-all font-black uppercase tracking-wider ${isDark ? "text-[#ffb900]" : "text-emerald-700"}`}
-          >
-            Tanzil - Quran Navigator
-          </a>
-          <p></p>
-          <a
-            href="https://www.vecteezy.com/"
-            target="_blank"
-            rel="noreferrer"
-            className={`text-[0.65rem] sm:text-xs opacity-60 font-black ${isDark ? "text-emerald-100" : "text-slate-500"}`}
-          >
-            الأيقونه تم صنعها من صورة من Vecteezy.com
-          </a>
-          <p
-            className={`text-[0.6rem] sm:text-[0.65rem] opacity-40 mt-2 font-black uppercase tracking-widest ${isDark ? "text-emerald-100" : "text-slate-400"}`}
+            className={`text-[0.6rem] sm:text-[0.65rem] opacity-50 pt-2 font-black uppercase tracking-widest ${isDark ? "text-emerald-100" : "text-slate-400"}`}
           >
             نَسَق - لخدمة كتاب الله © 2026
           </p>
         </footer>
       </div>
-    </>
+    </div>
   );
 }

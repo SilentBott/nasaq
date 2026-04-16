@@ -9,6 +9,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      workbox: {
+        maximumFileSizeToCacheInBytes: 5000000,
+      },
       injectRegister: "auto",
       includeAssets: ["favicon.ico", "apple-touch-icon.png", "mask-icon.svg"],
       manifest: {
@@ -34,7 +37,6 @@ export default defineConfig({
       },
     }),
   ],
-  // 👇 السر هنا: تقسيم الملفات عشان التحميل يبقى صاروخ
   build: {
     rollupOptions: {
       output: {

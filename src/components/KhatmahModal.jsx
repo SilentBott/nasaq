@@ -15,12 +15,14 @@ import {
   BookOpen,
   Book,
   Search,
-  Loader2,
   ArrowRight,
   ArrowLeft,
 } from "lucide-react";
 import simpleQuran from "../data/quran-simple-clean.json";
+import hafsData from "../data/Hafs.json";
 import { SURAHS } from "../data/surahs";
+
+const toArabic = (num) => num.toString().replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[d]);
 
 const VerseSelect = ({
   value,
@@ -38,6 +40,7 @@ const VerseSelect = ({
   const ref = useRef(null);
   const [dropdownStyle, setDropdownStyle] = useState({});
   const dropdownRef = useRef(null);
+
   const filtered = useMemo(
     () =>
       Array.from({ length: ayatCount || 0 }, (_, i) => i + 1).filter((n) => {
@@ -51,20 +54,7 @@ const VerseSelect = ({
       }),
     [surahId, ayatCount, query, startLimit],
   );
-  const [toast, setToast] = useState({
-    show: false,
-    message: "",
-    type: "info",
-  });
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [showOnlineBadge, setShowOnlineBadge] = useState(false);
 
-  const showToastMsg = useCallback((message, type = "info") => {
-    setToast({ show: true, message, type });
-    setTimeout(() => setToast((prev) => ({ ...prev, show: false })), 3500);
-  }, []);
-
-  // إغلاق اللستة لو ضغطنا بره الانبوت أو بره اللستة
   useEffect(() => {
     const out = (e) => {
       if (
@@ -76,7 +66,6 @@ const VerseSelect = ({
         setIsOpen(false);
       }
     };
-    // استخدام pointerdown بيشتغل أحسن على الموبايل من mousedown
     document.addEventListener("pointerdown", out);
     return () => document.removeEventListener("pointerdown", out);
   }, []);
@@ -90,22 +79,16 @@ const VerseSelect = ({
         left: `${rect.left}px`,
         width: `${rect.width}px`,
         transform: "translateY(-100%)",
-        zIndex: 99999, // 👈 عشان تظهر فوق الـ Modal وكل حاجة
+        zIndex: 99999,
       });
     }
   }, [isOpen, query]);
 
   useEffect(() => {
     const handleScroll = (e) => {
-      // 👇 السر هنا: لو الحدث (السكرول أو اللمس) حصل جوه اللستة، متعملش حاجة وكمل سكرول عادي
-      if (dropdownRef.current && dropdownRef.current.contains(e.target)) {
-        return;
-      }
-
-      // غير كده (يعني سكرول في الشاشة اللي ورا)، اقفلها
+      if (dropdownRef.current && dropdownRef.current.contains(e.target)) return;
       if (isOpen) setIsOpen(false);
     };
-
     window.addEventListener("scroll", handleScroll, true);
     window.addEventListener("touchmove", handleScroll, true);
     return () => {
@@ -144,7 +127,6 @@ const VerseSelect = ({
         </div>
       )}
 
-      {/* 👇 السر كله هنا: createPortal بياخد اللستة ويرميها برا الـ Modal تماماً فتتظبط أبعادها */}
       {isOpen &&
         createPortal(
           <div
@@ -182,7 +164,7 @@ const VerseSelect = ({
               ))}
             </div>
           </div>,
-          document.body, // 👈 بنرسمها في الشاشة الرئيسية مباشرة
+          document.body,
         )}
     </div>
   );
@@ -205,8 +187,7 @@ export default function KhatmahModal({
   getOccupiedVerses,
   openModal,
 }) {
-  const { fontSize, theme, quranData, dataLoading, highlightMode } =
-    useContext(FontContext);
+  const { fontSize, theme, highlightMode } = useContext(FontContext);
   const [showFullQuran, setShowFullQuran] = useState(false);
   const [continuousReading, setContinuousReading] = useState(false);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -217,64 +198,77 @@ export default function KhatmahModal({
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isSnapping, setIsSnapping] = useState(false);
-  const [isAnimatingTurn, setIsAnimatingTurn] = useState(false);
   const hasNavigatedRef = useRef(false);
+  const jumpToLastPageRef = useRef(false); // 👈 الماستر اللي هيحل مشكلة الرجوع
   const sliderRef = useRef(null);
+  const [multiSurahStart, setMultiSurahStart] = useState(null);
+
   const surahPages = useMemo(() => {
-    if (!selected || dataLoading) return [];
+    if (!selected) return [];
     const pages = [
       ...new Set(
-        quranData?.filter((v) => v.sura === selected.id).map((v) => v.page),
+        hafsData
+          .filter((v) => v.sura === selected.id)
+          .map((v) => v.page)
+          .filter(Boolean),
       ),
     ];
     return pages.sort((a, b) => a - b);
-  }, [selected, quranData, dataLoading]);
+  }, [selected]);
 
+  // 1. تصفير الصفحة عند تغيير السورة (إلا لو راجعين بضهرنا)
   useEffect(() => {
-    // لو جايين من بحث سريع (فيه آية محددة والختمة لسا ماتحفظتش)
+    if (selected) {
+      hasNavigatedRef.current = false;
+      if (!jumpToLastPageRef.current) {
+        setCurrentPageIndex(0);
+      }
+    }
+  }, [selected]);
+
+  // 2. القفز لآخر صفحة لما المتصفح يجهز الصفحات
+  useEffect(() => {
+    if (jumpToLastPageRef.current && surahPages.length > 0) {
+      setCurrentPageIndex(surahPages.length - 1);
+      jumpToLastPageRef.current = false;
+    }
+  }, [surahPages]);
+
+  // 3. البحث السريع والقفز لآية محددة
+  useEffect(() => {
     if (
       !hasNavigatedRef.current &&
       selected &&
-      quranData?.length > 0 &&
+      hafsData.length > 0 &&
       surahPages.length > 0 &&
       vRanges?.length === 1 &&
       !vRanges[0].isSaved
     ) {
       const targetAya = vRanges[0].start;
-      if (targetAya > 1) {
-        const verse = quranData.find(
+      if (targetAya >= 1) {
+        // 👈 كانت > 1 وصلحناها
+        const verse = hafsData.find(
           (v) => v.sura === selected.id && v.aya === targetAya,
         );
-        if (verse) {
+        if (verse && verse.page) {
           const pIdx = surahPages.indexOf(verse.page);
           if (pIdx !== -1) {
-            setCurrentPageIndex(pIdx); // 👈 نقلب للصفحة الصح
-            setShowFullQuran(true); // 👈 نفتح المصحف أوتوماتيك للمستخدم
+            setCurrentPageIndex(pIdx);
+            setShowFullQuran(true); // 👈 يفتح المصحف أوتوماتيك
             hasNavigatedRef.current = true;
           }
         }
       }
     }
-  }, [selected, quranData, surahPages, vRanges]);
-  useEffect(() => {
-    hasNavigatedRef.current = false; // تصفير لما نختار سورة جديدة
-    setCurrentPageIndex(0);
-  }, [selected]);
+  }, [selected, surahPages, vRanges]);
 
-  // 👇 متغيرات التتبع العابر للسور
-  const [multiSurahStart, setMultiSurahStart] = useState(null);
-
-  // 👇 دالة ذكية للتقليب العادي والعبور للسور المجاورة
   const turnPage = (direction) => {
     if (direction === "next") {
       if (currentPageIndex < surahPages.length - 1) {
         setCurrentPageIndex((p) => p + 1);
       } else if (selected.id < 114) {
-        // عبور للسورة التالية
         const nextSura = SURAHS.find((s) => s.id === selected.id + 1);
         setSelected(nextSura);
-        setCurrentPageIndex(0);
-        // تصفير الورد عشان منع رعشة وتخريف الزراير (Flicker Fix)
         setVRanges([
           { id: null, start: 0, end: 0, isActive: false, isSaved: false },
         ]);
@@ -283,16 +277,9 @@ export default function KhatmahModal({
       if (currentPageIndex > 0) {
         setCurrentPageIndex((p) => p - 1);
       } else if (selected.id > 1) {
-        // عبور للسورة السابقة
         const prevSura = SURAHS.find((s) => s.id === selected.id - 1);
+        jumpToLastPageRef.current = true; // 👈 بلغ السيستم إننا راجعين لورا
         setSelected(prevSura);
-        // حساب صفحات السورة السابقة للوقوف على آخر صفحة
-        const prevPages = [
-          ...new Set(
-            quranData?.filter((v) => v.sura === prevSura.id).map((v) => v.page),
-          ),
-        ].sort((a, b) => a - b);
-        setCurrentPageIndex(prevPages.length > 0 ? prevPages.length - 1 : 0);
         setVRanges([
           { id: null, start: 0, end: 0, isActive: false, isSaved: false },
         ]);
@@ -302,14 +289,12 @@ export default function KhatmahModal({
 
   const triggerSlide = (direction) => {
     if (isSnapping) return;
-    // 👇 هنا السحر: بنقيس عرض المصحف الفعلي مش عرض الشاشة
     const containerWidth = sliderRef.current
       ? sliderRef.current.offsetWidth
       : window.innerWidth;
     const moveDistance = containerWidth + 20;
     setIsSnapping(true);
     setSwipeOffset(direction === "next" ? moveDistance : -moveDistance);
-
     setTimeout(() => {
       setIsSnapping(false);
       setSwipeOffset(0);
@@ -334,7 +319,6 @@ export default function KhatmahModal({
   const onTouchMove = (e) => {
     if (!touchStart || isSnapping) return;
     let diff = e.targetTouches[0].clientX - touchStart;
-
     if (
       diff > 0 &&
       currentPageIndex === surahPages.length - 1 &&
@@ -342,15 +326,12 @@ export default function KhatmahModal({
     )
       return;
     if (diff < 0 && currentPageIndex === 0 && selected.id === 1) return;
-
-    // 👇 تحديد أقصى سحبة بناءً على عرض المصحف
     const containerWidth = sliderRef.current
       ? sliderRef.current.offsetWidth
       : window.innerWidth;
     const maxDrag = containerWidth + 20;
     if (diff > maxDrag) diff = maxDrag;
     if (diff < -maxDrag) diff = -maxDrag;
-
     setSwipeOffset(diff);
   };
 
@@ -358,15 +339,12 @@ export default function KhatmahModal({
     if (isSnapping || !isDragging) return;
     setIsDragging(false);
     if (!touchStart) return;
-
-    // 👇 تحديد نقطة الحسم بناءً على عرض المصحف
     const containerWidth = sliderRef.current
       ? sliderRef.current.offsetWidth
       : window.innerWidth;
     const moveDistance = containerWidth + 20;
     const threshold = containerWidth * 0.1;
     setIsSnapping(true);
-
     if (
       swipeOffset > threshold &&
       (currentPageIndex < surahPages.length - 1 || selected.id < 114)
@@ -392,6 +370,7 @@ export default function KhatmahModal({
       setTimeout(() => setIsSnapping(false), 150);
     }
   };
+
   const onMouseDown = (e) =>
     onTouchStart({ targetTouches: [{ clientX: e.clientX }] });
   const onMouseMove = (e) => {
@@ -402,21 +381,18 @@ export default function KhatmahModal({
     if (isDragging) onTouchEnd();
   };
 
-  // 👇 نظام التسجيل الذكي العابر للسور (The Masterpiece)
   const setVerseRangeTouch = (type, aya) => {
     if (!vRanges || vRanges.length === 0) return;
     const r = [...vRanges];
     const lastIdx = r.length - 1;
-
     if (type === "from") {
-      setMultiSurahStart({ surah_id: selected.id, aya: aya }); // تخزين نقطة البدء العالمية
+      setMultiSurahStart({ surah_id: selected.id, aya: aya });
       r[lastIdx].start = aya;
       if (r[lastIdx].end && aya > r[lastIdx].end) r[lastIdx].end = 0;
       r[lastIdx].isActive = true;
       setVRanges(r);
       setVerseMenu(null);
     } else {
-      // هل اليوزر راح سورة تانية؟
       if (multiSurahStart && multiSurahStart.surah_id !== selected.id) {
         handleMultiSurahSave(multiSurahStart, {
           surah_id: selected.id,
@@ -424,9 +400,8 @@ export default function KhatmahModal({
         });
         setMultiSurahStart(null);
         setVerseMenu(null);
-        return; // خروج لإن الدالة دي هتقفل الـ Modal
+        return;
       }
-
       r[lastIdx].end = aya;
       if (r[lastIdx].start && aya < r[lastIdx].start) r[lastIdx].start = 0;
       r[lastIdx].isActive = true;
@@ -437,7 +412,6 @@ export default function KhatmahModal({
   };
 
   const handleMultiSurahSave = async (startObj, endObj) => {
-    // حساب السور اللي في النص
     const startSurahIdx = SURAHS.findIndex((s) => s.id === startObj.surah_id);
     const endSurahIdx = SURAHS.findIndex((s) => s.id === endObj.surah_id);
     const minIdx = Math.min(startSurahIdx, endSurahIdx);
@@ -445,7 +419,6 @@ export default function KhatmahModal({
     const realStartAya =
       startSurahIdx < endSurahIdx ? startObj.aya : endObj.aya;
     const realEndAya = startSurahIdx < endSurahIdx ? endObj.aya : startObj.aya;
-
     const inserts = [];
     for (let i = minIdx; i <= maxIdx; i++) {
       const s = SURAHS[i];
@@ -453,12 +426,11 @@ export default function KhatmahModal({
       let vEnd = s.ayat;
       if (i === minIdx) vStart = realStartAya;
       if (i === maxIdx) vEnd = realEndAya;
-
       inserts.push({ surah_id: s.id, verse_start: vStart, verse_end: vEnd });
     }
-
     if (onMultiClaim) onMultiClaim(inserts);
   };
+
   const quickResults = useMemo(() => {
     if (!quickRegister || qSearch.length < 2) return null;
     const suras = SURAHS.filter((s) => s.name_ar.includes(qSearch));
@@ -492,80 +464,80 @@ export default function KhatmahModal({
     else setVerseMenu({ aya, x: e.clientX, y: e.clientY });
   };
 
-  if (dataLoading && selected)
-    return (
-      <div className="fixed inset-0 z-[200] bg-black/80 flex items-center justify-center">
-        <Loader2 className="animate-spin text-[#ffb900] w-12 h-12" />
-      </div>
-    );
-
   const renderVerses = (targetPageIdx) => {
-    if (targetPageIdx < 0 || targetPageIdx >= surahPages.length) return null;
+    const versesToRender = hafsData.filter((v) => {
+      if (v.sura !== selected.id) return false;
+      if (continuousReading || surahPages.length === 0) return true;
+      return v.page === surahPages[targetPageIdx];
+    });
 
-    return quranData
-      ?.filter(
-        (v) =>
-          v.sura === selected.id &&
-          (continuousReading ? true : v.page === surahPages[targetPageIdx]),
-      )
-      .map((v, i) => {
-        const isSel = vRanges?.some(
-          (r) =>
-            r.isActive &&
-            !r.isSaved &&
-            v.aya >= r.start &&
-            (r.end ? v.aya <= r.end : v.aya === r.start),
-        );
-        const isOcc = occupied.has(v.aya);
-        const isFull = highlightMode === "full";
-        const isRow = highlightMode === "row";
-        const isText = highlightMode === "text";
+    if (versesToRender.length === 0) {
+      return (
+        <div className="text-center py-10 font-black opacity-50 text-sm">
+          عذراً، لا يوجد بيانات للآيات.
+        </div>
+      );
+    }
 
-        let highlightStyle = {};
-        if (isSel) {
-          if (isText) highlightStyle = { color: "#ffb900" };
-          else if (isFull) {
-            const bgColor =
+    return versesToRender.map((v, i) => {
+      const isSel = vRanges?.some(
+        (r) =>
+          r.isActive &&
+          !r.isSaved &&
+          v.aya >= r.start &&
+          (r.end ? v.aya <= r.end : v.aya === r.start),
+      );
+      const isOcc = occupied.has(v.aya);
+      const isFull = highlightMode === "full";
+      const isRow = highlightMode === "row";
+      const isText = highlightMode === "text";
+
+      let highlightStyle = {};
+      if (isSel) {
+        if (isText) highlightStyle = { color: "#ffb900" };
+        else if (isFull) {
+          const bgColor =
+            theme === "dark"
+              ? "rgba(212, 175, 55, 1)"
+              : "rgba(255, 217, 105, 1)";
+          highlightStyle = {
+            color: "black",
+            padding: "0 1px",
+            margin: "0 -1px",
+            boxDecorationBreak: "clone",
+            WebkitBoxDecorationBreak: "clone",
+            backgroundImage: `linear-gradient(to bottom, transparent 6px, ${bgColor} 2px, ${bgColor} calc(100% - 0px), transparent calc(100% - 4px))`,
+            backgroundClip: "padding-box",
+            backgroundColor: "transparent",
+          };
+        } else if (isRow) {
+          highlightStyle = {
+            backgroundImage:
               theme === "dark"
-                ? "rgba(212, 175, 55, 1)"
-                : "rgba(255, 217, 105, 1)";
-            highlightStyle = {
-              color: "black",
-              padding: "0 1px",
-              margin: "0 -1px",
-              boxDecorationBreak: "clone",
-              WebkitBoxDecorationBreak: "clone",
-              backgroundImage: `linear-gradient(to bottom, transparent 6px, ${bgColor} 2px, ${bgColor} calc(100% - 0px), transparent calc(100% - 4px))`,
-              backgroundClip: "padding-box",
-              backgroundColor: "transparent",
-            };
-          } else if (isRow) {
-            highlightStyle = {
-              backgroundImage:
-                theme === "dark"
-                  ? "linear-gradient(to bottom, transparent 1.24em, rgba(255, 168, 0, 0.3) 5px, rgba(255, 168, 0, 0.3) calc(100% - 0.4em), transparent calc(100% - 0.5em))"
-                  : "linear-gradient(to bottom, transparent 1.24em, rgba(255, 185, 0, 0.3) 5px, rgba(255, 185, 0, 0.3) calc(100% - 0.4em), transparent calc(100% - 0.5em))",
-              mixBlendMode: theme === "dark" ? "lighten" : "darken",
-            };
-          }
+                ? "linear-gradient(to bottom, transparent 1.24em, rgba(255, 168, 0, 0.3) 5px, rgba(255, 168, 0, 0.3) calc(100% - 0.4em), transparent calc(100% - 0.5em))"
+                : "linear-gradient(to bottom, transparent 1.24em, rgba(255, 185, 0, 0.3) 5px, rgba(255, 185, 0, 0.3) calc(100% - 0.4em), transparent calc(100% - 0.5em))",
+            mixBlendMode: theme === "dark" ? "lighten" : "darken",
+          };
         }
-        return (
+      }
+      return (
+        <span
+          key={i}
+          onClick={(e) => toggleVerseMenu(v.aya, e)}
+          className={`inline transition-all duration-200 cursor-pointer ${isOcc ? "text-slate-400/40 grayscale pointer-events-none" : ""}`}
+          style={highlightStyle}
+        >
+          {v.text.trim()}
           <span
-            key={i}
-            onClick={(e) => toggleVerseMenu(v.aya, e)}
-            className={`inline transition-all duration-200 cursor-pointer ${isOcc ? "text-slate-400/40 grayscale pointer-events-none" : ""}`}
-            style={highlightStyle}
+            className={`${isSel ? (isFull ? "text-emerald-950" : "text-[#ffb900]") : isOcc ? "text-slate-400/30" : "text-[#ffb900]"} opacity-100 text-[0.6em] font-sans inline-block px-[0.2em] ml-[0.2em]`}
           >
-            {v.text.trim()}
-            <span
-              className={`${isSel ? (isFull ? "text-emerald-950" : "text-[#ffb900]") : isOcc ? "text-slate-400/30" : "text-[#ffb900]"} opacity-100 text-[0.6em] font-sans inline-block px-[0.2em] ml-[0.2em]`}
-            >
-              ({v.aya})
-            </span>
+            ({toArabic(v.aya)})
           </span>
-        );
-      });
+        </span>
+      );
+    });
   };
+
   return (
     <>
       <style>{` .quran-scroll::-webkit-scrollbar { width: 3px; } .quran-scroll::-webkit-scrollbar-track { background: transparent; margin: 30px 0; } .quran-scroll::-webkit-scrollbar-thumb { background: #ffb900; border-radius: 10px; } `}</style>
@@ -580,7 +552,7 @@ export default function KhatmahModal({
         >
           <button
             onClick={() => setVerseRangeTouch("from", verseMenu.aya)}
-            className={`px-3 py-2 sm:px-4 sm:py-2 font-black rounded-xl text-[0.65rem] sm:text-sm transition-all active:scale-95 shadow-md whitespace-nowrap ${theme === "dark" ? "bg-[#ffb900] hover:bg-amber-400 text-white text-[#042f24]" : "bg-amber-100 hover:bg-amber-200 text-amber-900"}`}
+            className={`px-3 py-2 sm:px-4 sm:py-2 font-black rounded-xl text-[0.65rem] sm:text-sm transition-all active:scale-95 shadow-md whitespace-nowrap ${theme === "dark" ? "bg-[#ffb900] hover:bg-amber-400 text-[#042f24]" : "bg-amber-100 hover:bg-amber-200 text-amber-900"}`}
           >
             من هنا
           </button>
@@ -601,31 +573,21 @@ export default function KhatmahModal({
         }}
       >
         <div
-          className={`w-full transition-all duration-500 ease-in-out 
-            ${
-              showFullQuran
-                ? "max-w-4xl h-[100dvh] lg:h-[90vh] rounded-none lg:rounded-[3.5rem]"
-                : "max-w-xl h-fit max-h-[90vh] rounded-t-[2.5rem] lg:rounded-[3.5rem]"
-            } overflow-y-auto quran-scroll 
-            ${
-              theme === "dark"
-                ? "bg-[#042f24] lg:border-2 border-emerald-800 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]"
-                : "bg-white lg:border-2 border-slate-200 shadow-xl"
-            } p-2 sm:p-10 text-right relative flex flex-col`}
+          className={`w-full transition-all duration-500 ease-in-out ${showFullQuran ? "max-w-4xl h-[100dvh] lg:h-[90vh] rounded-none lg:rounded-[3.5rem]" : "max-w-xl h-fit max-h-[90vh] rounded-t-[2.5rem] lg:rounded-[3.5rem]"} overflow-y-auto quran-scroll ${theme === "dark" ? "bg-[#042f24] lg:border-2 border-emerald-800 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]" : "bg-white lg:border-2 border-slate-200 shadow-xl"} p-4 sm:p-10 text-right relative flex flex-col`}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="w-12 h-1.5 bg-emerald-500/20 rounded-full mx-auto mb-2 lg:hidden shrink-0"></div>
+          <div className="w-12 h-1.5 bg-emerald-500/20 rounded-full mx-auto mb-4 lg:hidden shrink-0"></div>
 
-          <div className="relative flex items-center justify-between mb-2 gap-2 px-2 min-h-[48px]">
+          <div className="relative flex items-center justify-between mb-4 gap-2 px-2 min-h-[48px]">
             {selected && (
               <button
                 onClick={() => setShowFullQuran(!showFullQuran)}
-                className="transition-all active:scale-90"
+                className="transition-all active:scale-90 z-20 relative bg-emerald-500/10 p-2 rounded-xl text-emerald-600 hover:bg-emerald-500/20"
               >
                 {showFullQuran ? (
                   <Book
                     size={28}
-                    className={`sm:w-8 sm:h-8 ${theme === "dark" ? "text-emerald-400" : "text-emerald-900"}`}
+                    className={`sm:w-8 sm:h-8 ${theme === "dark" ? "text-emerald-400" : "text-emerald-700"}`}
                   />
                 ) : (
                   <BookOpen
@@ -636,22 +598,21 @@ export default function KhatmahModal({
               </button>
             )}
             <h2
-              className={`text-2xl sm:text-3xl font-black mr-5 font-serif tracking-tighter ${theme === "dark" ? "text-[#ffb900]" : "text-emerald-700"}`}
+              className={`text-2xl sm:text-3xl font-black mx-auto font-serif tracking-tighter ${theme === "dark" ? "text-[#ffb900]" : "text-emerald-700"}`}
             >
               {selected ? selected.name_ar : "البحث السريع"}
             </h2>
-            <div className="flex items-center gap-3 sm:gap-4 relative z-10">
-              <button
-                onClick={() => {
-                  setSelected(null);
-                  setQuickRegister(false);
-                }}
-                className={`p-2 sm:p-2.5 rounded-full transition-all ${theme === "dark" ? "bg-emerald-900/40 text-emerald-300 hover:bg-red-500/20" : "bg-slate-100 text-slate-500 hover:bg-red-50"}`}
-              >
-                <X size={20} className="sm:w-6 sm:h-6" />
-              </button>
-            </div>
+            <button
+              onClick={() => {
+                setSelected(null);
+                setQuickRegister(false);
+              }}
+              className={`p-2.5 rounded-full transition-all z-20 relative ${theme === "dark" ? "bg-emerald-900/40 text-emerald-300 hover:bg-red-500/20" : "bg-slate-100 text-slate-500 hover:bg-red-50"}`}
+            >
+              <X size={20} className="sm:w-6 sm:h-6" />
+            </button>
           </div>
+
           {quickRegister && !selected && (
             <div className="flex flex-col-reverse px-2">
               <div
@@ -667,14 +628,10 @@ export default function KhatmahModal({
                   onChange={(e) => setQSearch(e.target.value)}
                 />
               </div>
-
-              {/* 👇 السر هنا: التأكد إن النتايج مش null قبل ما نحاول نرسمها */}
               {quickResults && (
                 <div className="p-2" dir="rtl">
-                  {/* 1. قائمة الآيات (تظهر في الأعلى) */}
                   {quickResults?.ayas?.length > 0 && (
                     <div className="mb-1 sm:mb-3">
-                      {/* الآيات أولاً (عشان تظهر فوق الشرطة بتاعتها) */}
                       <div className="space-y-3 sm:space-y-4 mb-4">
                         {quickResults.ayas.map((a, i) => (
                           <button
@@ -688,7 +645,7 @@ export default function KhatmahModal({
                             <span className="font-black text-[#ffb900] bg-[#ffb900]/10 px-3 py-1 rounded-full text-[0.6rem] sm:text-xs shrink-0">
                               آية -{" "}
                               {SURAHS.find((s) => s.id === a.sura)?.name_ar} :{" "}
-                              {a.aya}
+                              {toArabic(a.aya)}
                             </span>
                             <span className="truncate opacity-90 font-serif text-lg sm:text-xl font-bold ml-2">
                               {a.text}
@@ -696,11 +653,9 @@ export default function KhatmahModal({
                           </button>
                         ))}
                       </div>
-
-                      {/* شرطة الآيات (تظهر تحت قائمة الآيات) */}
                       <div className="flex items-center gap-3">
                         <span className="font-black text-[#ffb900] bg-[#ffb900]/10 px-3 py-1 rounded-full text-xs sm:text-sm">
-                          {quickResults.ayas.length}
+                          {toArabic(quickResults.ayas.length)}
                         </span>
                         <span
                           className={`font-black text-sm sm:text-base ${theme === "dark" ? "text-emerald-400" : "text-emerald-700"}`}
@@ -713,11 +668,8 @@ export default function KhatmahModal({
                       </div>
                     </div>
                   )}
-
-                  {/* 2. قائمة السور (تظهر في الأسفل، أقرب للإنبوت) */}
                   {quickResults?.suras?.length > 0 && (
                     <div>
-                      {/* السور (تظهر فوق الشرطة بتاعتها) */}
                       <div className="space-y-3 sm:space-y-4 mb-4">
                         {quickResults.suras.map((s) => (
                           <button
@@ -729,11 +681,9 @@ export default function KhatmahModal({
                           </button>
                         ))}
                       </div>
-
-                      {/* شرطة السور (أقرب عنصر لإنبوت البحث مباشرة) */}
                       <div className="flex items-center gap-3">
                         <span className="font-black text-[#ffb900] bg-[#ffb900]/10 px-3 py-1 rounded-full text-xs sm:text-sm">
-                          {quickResults.suras.length}
+                          {toArabic(quickResults.suras.length)}
                         </span>
                         <span
                           className={`font-black text-sm sm:text-base ${theme === "dark" ? "text-emerald-400" : "text-emerald-700"}`}
@@ -754,36 +704,31 @@ export default function KhatmahModal({
           {selected && (
             <>
               {showFullQuran && (
-                <div className="mb-8 w-full animate-in fade-in duration-500">
-                  {/* 👇 الهيدر اللي فيه زراير التقليب */}
-                  <div className="flex justify-between items-center mb-2 px-2 sm:px-6">
-                    <button
-                      onClick={() => setContinuousReading(!continuousReading)}
-                      className={`text-[0.6rem] sm:text-xs px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl border-2 font-black transition-all active:scale-95 ${theme === "dark" ? "bg-emerald-800 border-emerald-700 text-emerald-100" : "bg-emerald-100 border-emerald-200 text-emerald-800 hover:bg-emerald-200"}`}
-                    >
-                      {continuousReading ? "قراءة متواصلة" : "عرض الصفحات"}
-                    </button>
-                    {/* 👇 زراير التقليب للكمبيوتر رجعناها هنا */}
+                <div className="mb-6 w-full animate-in fade-in duration-500">
+                  <div className="flex justify-between items-center mb-3 px-2 sm:px-6">
+                    {surahPages.length > 0 && (
+                      <button
+                        onClick={() => setContinuousReading(!continuousReading)}
+                        className={`text-[0.6rem] sm:text-xs px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl border-2 font-black transition-all active:scale-95 ${theme === "dark" ? "bg-emerald-800 border-emerald-700 text-emerald-100" : "bg-emerald-100 border-emerald-200 text-emerald-800 hover:bg-emerald-200"}`}
+                      >
+                        {continuousReading ? "عرض الصفحات" : "قراءة متواصلة"}
+                      </button>
+                    )}
                     {!continuousReading &&
                       surahPages &&
                       surahPages.length > 0 && (
                         <div className="flex items-center gap-3" dir="ltr">
-                          {/* زرار الصفحة التالية (سهم يسار) */}
                           <button
                             onClick={handleNextPage}
                             className={`p-2 rounded-full transition-all active:scale-95 ${theme === "dark" ? "bg-emerald-900 text-emerald-400 hover:bg-emerald-800" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"}`}
                           >
                             <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                           </button>
-
-                          {/* رقم الصفحة في النص */}
                           <span
                             className={`font-black text-xs sm:text-sm px-2 ${theme === "dark" ? "text-emerald-300" : "text-emerald-700"}`}
                           >
-                            صـــ {surahPages[currentPageIndex]}
+                            صـــ {toArabic(surahPages[currentPageIndex])}
                           </span>
-
-                          {/* زرار الصفحة السابقة (سهم يمين) */}
                           <button
                             onClick={handlePrevPage}
                             className={`p-2 rounded-full transition-all active:scale-95 ${theme === "dark" ? "bg-emerald-900 text-emerald-400 hover:bg-emerald-800" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"}`}
@@ -796,20 +741,17 @@ export default function KhatmahModal({
 
                   <div
                     ref={sliderRef}
-                    className={`relative touch-pan-y w-full border-y-2 sm:border-y-4 rounded-[1.5rem] sm:rounded-[2.5rem] overflow-hidden ${theme === "dark" ? "border-emerald-900/50 bg-[#042f24]" : "border-amber-100 bg-white"}`}
-                    // أحداث اللمس للموبايل
+                    className={`relative touch-pan-y w-full border-y-2 sm:border-y-4 rounded-[1.5rem] sm:rounded-[2.5rem] overflow-hidden ${theme === "dark" ? "border-emerald-900/50 bg-[#042f24]" : "border-emerald-100 bg-white"}`}
                     onTouchStart={!continuousReading ? onTouchStart : undefined}
                     onTouchMove={!continuousReading ? onTouchMove : undefined}
                     onTouchEnd={!continuousReading ? onTouchEnd : undefined}
                     onTouchCancel={!continuousReading ? onTouchEnd : undefined}
-                    // 👇 أحداث الماوس للابتوب ضفناها هنا
                     onMouseDown={!continuousReading ? onMouseDown : undefined}
                     onMouseMove={!continuousReading ? onMouseMove : undefined}
                     onMouseUp={!continuousReading ? onMouseUp : undefined}
                     onMouseLeave={!continuousReading ? onMouseLeave : undefined}
                     dir="rtl"
                   >
-                    {/* 👇 شريط الصفحات المتصل */}
                     <div
                       className="relative w-full"
                       style={{
@@ -819,23 +761,18 @@ export default function KhatmahModal({
                           : "none",
                       }}
                     >
-                      {/* 1. الصفحة السابقة أو السورة السابقة */}
                       {!continuousReading &&
                         (currentPageIndex > 0 ? (
                           <div
                             className="absolute top-0 w-full"
                             style={{ left: "calc(100% + 20px)" }}
                           >
-                            <div
-                              className="w-full flex-shrink-0 min-w-full py-3 px-2 sm:px-6"
-                              style={{ containerType: "inline-size" }}
-                            >
+                            <div className="w-full flex-shrink-0 min-w-full py-5 px-3 sm:px-6">
                               <div
                                 className={`text-justify font-['Amiri_Quran'] ${theme === "dark" ? "text-emerald-50" : "text-slate-900"} transition-all`}
                                 style={{
                                   lineHeight: "2.1",
                                   fontSize: `${2.7 + fontSize * 0.65}cqi`,
-                                  textShadow: "0px 0px 0.3px currentColor",
                                 }}
                               >
                                 {renderVerses(currentPageIndex - 1)}
@@ -844,7 +781,7 @@ export default function KhatmahModal({
                           </div>
                         ) : selected.id > 1 ? (
                           <div
-                            className="absolute top-0 w-full h-full flex flex-col items-center justify-center opacity-40 transition-all"
+                            className="absolute top-0 w-full h-full flex flex-col items-center justify-center opacity-40"
                             style={{ left: "calc(100% + 20px)" }}
                           >
                             <BookOpen
@@ -867,10 +804,9 @@ export default function KhatmahModal({
                           </div>
                         ) : null)}
 
-                      {/* 2. الصفحة الحالية */}
                       <div className="relative z-10 w-full">
                         <div
-                          className="w-full py-3 px-2 sm:px-6"
+                          className="w-full py-5 px-3 sm:px-6"
                           style={{ containerType: "inline-size" }}
                         >
                           <div
@@ -878,7 +814,6 @@ export default function KhatmahModal({
                             style={{
                               lineHeight: "2.1",
                               fontSize: `${2.7 + fontSize * 0.65}cqi`,
-                              textShadow: "0px 0px 0.3px currentColor",
                             }}
                           >
                             {renderVerses(currentPageIndex)}
@@ -886,23 +821,18 @@ export default function KhatmahModal({
                         </div>
                       </div>
 
-                      {/* 3. الصفحة التالية أو السورة التالية */}
                       {!continuousReading &&
                         (currentPageIndex < surahPages.length - 1 ? (
                           <div
                             className="absolute top-0 w-full"
                             style={{ right: "calc(100% + 20px)" }}
                           >
-                            <div
-                              className="w-full flex-shrink-0 min-w-full py-3 px-2 sm:px-6"
-                              style={{ containerType: "inline-size" }}
-                            >
+                            <div className="w-full flex-shrink-0 min-w-full py-5 px-3 sm:px-6">
                               <div
                                 className={`text-justify font-['Amiri_Quran'] ${theme === "dark" ? "text-emerald-50" : "text-slate-900"} transition-all`}
                                 style={{
                                   lineHeight: "2.1",
                                   fontSize: `${2.7 + fontSize * 0.65}cqi`,
-                                  textShadow: "0px 0px 0.3px currentColor",
                                 }}
                               >
                                 {renderVerses(currentPageIndex + 1)}
@@ -911,7 +841,7 @@ export default function KhatmahModal({
                           </div>
                         ) : selected.id < 114 ? (
                           <div
-                            className="absolute top-0 w-full h-full flex flex-col items-center justify-center opacity-40 transition-all"
+                            className="absolute top-0 w-full h-full flex flex-col items-center justify-center opacity-40"
                             style={{ right: "calc(100% + 20px)" }}
                           >
                             <BookOpen
@@ -938,7 +868,7 @@ export default function KhatmahModal({
                 </div>
               )}
 
-              <div className="space-y-4 sm:space-y-6 mb-8 px-1 sm:px-2 mt-6 w-full">
+              <div className="space-y-4 sm:space-y-6 mb-6 px-1 sm:px-2 w-full">
                 {(vRanges || []).map((range, index) => (
                   <div
                     key={index}
@@ -963,7 +893,6 @@ export default function KhatmahModal({
                     <span className="text-slate-300 font-black px-0.5 sm:px-1 shrink-0">
                       :
                     </span>
-
                     <div className="flex-1 relative flex flex-col items-center">
                       <VerseSelect
                         value={range.end}
@@ -1003,13 +932,12 @@ export default function KhatmahModal({
                             r[index].isActive = true;
                             setVRanges(r);
                           }}
-                          className={`absolute top-full mt-2 sm:mt-3 text-xs sm:text-base font-black underline text-center w-full px-2 active:scale-95 transition-transform ${theme === "dark" ? "text-emerald-300" : "text-emerald-700"}`}
+                          className={`absolute top-full mt-2 sm:mt-3 text-[0.65rem] sm:text-xs font-black underline text-center w-full px-2 active:scale-95 transition-transform ${theme === "dark" ? "text-emerald-300" : "text-emerald-700"}`}
                         >
                           إلى آخر السورة
                         </button>
                       )}
                     </div>
-
                     <span className="text-slate-300 font-black px-0.5 sm:px-1 shrink-0">
                       =
                     </span>
@@ -1017,7 +945,9 @@ export default function KhatmahModal({
                       className={`w-10 h-10 sm:w-12 sm:h-12 shrink-0 ${theme === "dark" ? "bg-[#ffb900]/10 border-[#ffb900]/20" : "bg-amber-50 border-amber-200"} border rounded-[0.8rem] sm:rounded-2xl flex items-center justify-center shadow-inner mx-0.5 sm:mx-1`}
                     >
                       <span className="text-[#ffb900] font-black text-xs sm:text-sm">
-                        {range.end ? range.end - range.start + 1 : 0}
+                        {range.end
+                          ? toArabic(range.end - range.start + 1)
+                          : "٠"}
                       </span>
                     </div>
                     <button
@@ -1043,18 +973,19 @@ export default function KhatmahModal({
                 ))}
               </div>
 
-              <div className="flex gap-3 sm:gap-4 pt-5 sm:pt-10">
+              <div className="flex flex-col gap-3 sm:gap-4 pt-4 sm:pt-6 w-full mt-auto">
                 <button
                   onClick={onClaim}
-                  className={`flex-1 font-black py-5 sm:py-7 rounded-[2rem] sm:rounded-[3rem] shadow-xl active:scale-95 transition-all text-lg sm:text-2xl flex items-center justify-center gap-2 sm:gap-3 ${theme === "dark" ? "bg-emerald-600 hover:bg-emerald-500 text-white" : "bg-emerald-500 hover:bg-emerald-400 text-white"}`}
+                  className={`w-full font-black py-4 sm:py-6 rounded-[1.5rem] sm:rounded-[2rem] shadow-xl active:scale-95 transition-all text-lg sm:text-2xl flex items-center justify-center gap-2 sm:gap-3 ${theme === "dark" ? "bg-emerald-600 hover:bg-emerald-500 text-white" : "bg-emerald-500 hover:bg-emerald-400 text-white"}`}
                 >
                   <BookOpen className="w-6 h-6 sm:w-8 sm:h-8" /> تأكيد الورد
                 </button>
                 <button
                   onClick={onDeleteAll}
-                  className={`p-1.5 sm:p-2.5 shrink-0 transition-all active:scale-90 ${theme === "dark" ? "text-red-500" : "text-red-500"}`}
+                  className={`w-full py-3 rounded-xl sm:rounded-2xl flex items-center justify-center gap-2 font-black transition-all active:scale-95 ${theme === "dark" ? "bg-red-900/20 text-red-400 hover:bg-red-900/40" : "bg-red-50 text-red-600 hover:bg-red-100"}`}
                 >
-                  <Trash2 className="w-5 h-5 sm:w-6 sm:h-6" />
+                  <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" /> مسح كل قراءاتي في
+                  هذه السورة
                 </button>
               </div>
             </>

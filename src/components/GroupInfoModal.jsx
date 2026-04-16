@@ -26,11 +26,18 @@ export default function GroupInfoModal({
   if (!currentGroup) return null;
 
   const isCreator = currentGroup.creator_name === userName;
-  const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${encodeURIComponent(currentGroup.name)}&code=${currentGroup.invite_code || ""}`;
+
+  // 👇 الرابط بقى ذكي: لو مجموعة عامة مش هيحط الكود السري، ولو خاصة هيحطه
+  const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${encodeURIComponent(currentGroup.name)}${currentGroup.is_private ? `&code=${currentGroup.invite_code || ""}` : ""}`;
+
   const copyInviteLink = () => {
     navigator.clipboard.writeText(inviteLink);
     alert("تم نسخ رابط الدعوة بنجاح! 📋");
   };
+
+  const usersList = Object.entries(groupStats?.users || {}).sort(
+    (a, b) => b[1] - a[1],
+  );
 
   return (
     <div
@@ -72,21 +79,22 @@ export default function GroupInfoModal({
         </div>
 
         <div className="space-y-6 relative z-10">
-          {/* 👇 قسم مشاركة الرابط (للمنشئ فقط) 👇 */}
-          {isCreator && (
-            <div
-              className={`p-5 rounded-3xl border shadow-sm ${theme === "dark" ? "bg-emerald-900/30 border-emerald-500/10" : "bg-slate-50/80 border-slate-200"}`}
-            >
-              <h4 className="text-[0.65rem] sm:text-xs font-black opacity-60 uppercase mb-3 text-right tracking-widest">
-                رابط دعوة مباشر
-              </h4>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={copyInviteLink}
-                  className={`flex-1 p-3 rounded-xl font-black text-xs sm:text-sm flex justify-center items-center gap-2 transition-all ${theme === "dark" ? "bg-emerald-600 hover:bg-emerald-500 text-white" : "bg-emerald-500 hover:bg-emerald-400 text-white"}`}
-                >
-                  <Copy size={16} /> نسخ الرابط
-                </button>
+          {/* 👇 قسم مشاركة الرابط (يظهر للكل في العام، وللمنشئ في الخاص) 👇 */}
+          <div
+            className={`p-5 rounded-3xl border shadow-sm ${theme === "dark" ? "bg-emerald-900/30 border-emerald-500/10" : "bg-slate-50/80 border-slate-200"}`}
+          >
+            <h4 className="text-[0.65rem] sm:text-xs font-black opacity-60 uppercase mb-3 text-right tracking-widest">
+              رابط دعوة مباشر
+            </h4>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={copyInviteLink}
+                className={`flex-1 p-3 rounded-xl font-black text-xs sm:text-sm flex justify-center items-center gap-2 transition-all ${theme === "dark" ? "bg-emerald-600 hover:bg-emerald-500 text-white" : "bg-emerald-500 hover:bg-emerald-400 text-white"}`}
+              >
+                <Copy size={16} /> نسخ الرابط
+              </button>
+              {/* زر تغيير الكود (للمجموعات الخاصة فقط، وللمنشئ فقط) */}
+              {isCreator && currentGroup.is_private && (
                 <button
                   onClick={onRegenerateCode}
                   title="تغيير كود الدعوة (لإبطال الرابط القديم)"
@@ -94,9 +102,9 @@ export default function GroupInfoModal({
                 >
                   <RefreshCw size={16} />
                 </button>
-              </div>
+              )}
             </div>
-          )}
+          </div>
 
           <div
             className={`p-5 rounded-3xl border shadow-sm ${theme === "dark" ? "bg-emerald-900/30 border-emerald-500/10" : "bg-slate-50/80 border-slate-200"}`}
@@ -105,9 +113,15 @@ export default function GroupInfoModal({
               الأعضاء ومساهماتهم
             </h4>
             <div className="space-y-3 max-h-48 overflow-y-auto quran-scroll pr-2">
-              {Object.entries(groupStats.users)
-                .sort((a, b) => b[1] - a[1])
-                .map(([user, count], idx) => {
+              {/* 👇 رسالة: لم يتم قراءة أي شيء 👇 */}
+              {usersList.length === 0 ? (
+                <div
+                  className={`text-center font-bold text-sm py-4 ${theme === "dark" ? "text-emerald-100/50" : "text-slate-400"}`}
+                >
+                  لم يتم قراءة أي شيء لحد الآن 📖
+                </div>
+              ) : (
+                usersList.map(([user, count], idx) => {
                   const percent =
                     groupStats.totalVerses > 0
                       ? ((count / groupStats.totalVerses) * 100).toFixed(1)
@@ -127,7 +141,6 @@ export default function GroupInfoModal({
                             المنشئ
                           </span>
                         )}
-                        {/* 👇 زر طرد العضو (يظهر للمنشئ فقط، ومش بيطرد نفسه) 👇 */}
                         {isCreator && user !== userName && (
                           <button
                             onClick={() => onKickUser(user)}
@@ -139,7 +152,8 @@ export default function GroupInfoModal({
                       </div>
                     </div>
                   );
-                })}
+                })
+              )}
             </div>
           </div>
 
