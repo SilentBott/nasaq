@@ -74,11 +74,11 @@ const VerseSelect = ({
         !dropdownRef.current.contains(e.target)
       ) {
         setIsOpen(false);
-        setQuery("");
       }
     };
-    document.addEventListener("mousedown", out);
-    return () => document.removeEventListener("mousedown", out);
+    // استخدام pointerdown بيشتغل أحسن على الموبايل من mousedown
+    document.addEventListener("pointerdown", out);
+    return () => document.removeEventListener("pointerdown", out);
   }, []);
 
   useLayoutEffect(() => {
