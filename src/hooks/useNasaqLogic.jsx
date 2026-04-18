@@ -8,7 +8,7 @@ export function useNasaqLogic(userName, showToastMsg) {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [loading, setLoading] = useState(false);
 
-  // 1. جلب المجموعات
+  // 1. جلب المجموعات مع نظام الكاش الأوفلاين
   const fetchGroups = useCallback(async () => {
     if (!userName) return;
     try {
@@ -35,44 +35,50 @@ export function useNasaqLogic(userName, showToastMsg) {
       uniqueGroups.sort(
         (a, b) => new Date(b.created_at) - new Date(a.created_at),
       );
+
       setMyGroups(uniqueGroups);
+      localStorage.setItem(
+        `nasaq_groups_${userName}`,
+        JSON.stringify(uniqueGroups),
+      ); // 👈 حفظ للذاكرة
     } catch (err) {
-      console.warn("Offline Mode");
+      console.warn("Offline Mode: Loading Groups from Cache");
+      const cached = localStorage.getItem(`nasaq_groups_${userName}`);
+      if (cached) setMyGroups(JSON.parse(cached)); // 👈 استرجاع عند انقطاع النت
     }
   }, [userName]);
 
-  // 2. جلب القراءات
-  // 2. جلب القراءات
+  // 2. جلب القراءات مع نظام الكاش
   const fetchLogs = useCallback(async () => {
     if (!userName) return;
-
-    // 👇 السطر ده هيخلي الشاشة تصفر فوراً لحد ما الداتا الجديدة تيجي 👇
-    setLogs([]);
+    const cacheKey = currentGroup
+      ? `nasaq_logs_${currentGroup.id}`
+      : `nasaq_logs_${userName}`;
 
     try {
       let query = supabase
         .from("nasaq_logs")
         .select("*")
         .order("created_at", { ascending: true });
-      if (currentGroup && currentGroup.id) {
+      if (currentGroup && currentGroup.id)
         query = query.eq("group_id", currentGroup.id);
-      } else {
-        query = query.is("group_id", null).eq("user_name", userName);
-      }
+      else query = query.is("group_id", null).eq("user_name", userName);
+
       const { data } = await query;
       setLogs(data || []);
+      localStorage.setItem(cacheKey, JSON.stringify(data || [])); // 👈 حفظ للذاكرة
     } catch (err) {
-      console.error("Logs Fetch Error:", err);
+      console.warn("Offline Mode: Loading Logs from Cache");
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) setLogs(JSON.parse(cached)); // 👈 استرجاع عند انقطاع النت
     }
   }, [userName, currentGroup]);
 
-  // 3. الدالة الشاملة اللي بتعمل ريفريش لكل حاجة في جزء من الثانية
   const fetchData = useCallback(async () => {
     await fetchGroups();
     await fetchLogs();
   }, [fetchGroups, fetchLogs]);
 
-  // 👇 السحر هنا: أي تغيير في الاسم أو اختيار المجموعة، بيعمل ريفريش آلي 👇
   useEffect(() => {
     if (userName) fetchData();
   }, [userName, currentGroup, fetchData]);
@@ -130,6 +136,7 @@ export function useNasaqLogic(userName, showToastMsg) {
     currentGroup,
     setcurrentGroup,
     logs,
+    setLogs,
     isOnline,
     loading,
     setLoading,

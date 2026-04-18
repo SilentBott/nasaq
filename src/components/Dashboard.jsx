@@ -1,6 +1,8 @@
-import { useState, useContext, useRef } from "react";
+import { useState, useContext, useRef, useEffect } from "react";
 import { FontContext } from "../FontContext";
 import SettingsMenu from "./SettingsMenu";
+import KhatmahRadar from "./KhatmahRadar";
+import { supabase } from "../lib/supabase";
 import {
   User,
   Users,
@@ -20,16 +22,41 @@ export default function Dashboard({
   onJoin,
   onLogout,
 }) {
-  const { theme } = useContext(FontContext);
+  const { theme, fontSize } = useContext(FontContext);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [jInp, setJInp] = useState("");
   const [createName, setCreateName] = useState("");
   const [isPrivateGroup, setIsPrivateGroup] = useState(false);
   const [holdingGroupId, setHoldingGroupId] = useState(null);
   const [holdProgress, setHoldProgress] = useState(0);
+  const [radarGroups, setRadarGroups] = useState([]);
 
   const intervalRef = useRef(null);
   const groupDelayRef = useRef(null);
+
+  // معامل التكبير بناءً على إعدادات المستخدم
+  const scaleMultiplier = 1 + (fontSize - 5) * 0.05;
+
+  useEffect(() => {
+    const fetchRadarGroups = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("groups")
+          .select("*")
+          .gte("progress", 98)
+          .lt("progress", 100)
+          .order("progress", { ascending: false })
+          .limit(10);
+
+        if (data && !error) {
+          setRadarGroups(data);
+        }
+      } catch (err) {
+        console.error("Error fetching radar groups", err);
+      }
+    };
+    fetchRadarGroups();
+  }, []);
 
   const startGroupHold = (group) => {
     if (intervalRef.current || groupDelayRef.current) return;
@@ -76,7 +103,7 @@ export default function Dashboard({
   };
 
   return (
-    <div className="p-6 text-right max-w-2xl mx-auto">
+    <div className="p-6 text-right max-w-2xl mx-auto relative z-10 w-full overflow-hidden">
       <header className="flex flex-row justify-between items-center mb-10">
         <h1 className="text-4xl font-black text-amber-500 font-serif tracking-tighter">
           نَسَق
@@ -100,7 +127,13 @@ export default function Dashboard({
         </div>
       </header>
 
-      <div className="space-y-2">
+      <KhatmahRadar
+        topGroups={radarGroups}
+        theme={theme}
+        onJoinGroup={(group) => onJoin(group.name)}
+      />
+
+      <div className="space-y-2 relative z-10">
         <button
           onClick={() =>
             setcurrentGroup({
@@ -109,21 +142,27 @@ export default function Dashboard({
               is_private: true,
             })
           }
-          className={`w-full ${theme === "dark" ? "bg-emerald-900/10 border-emerald-800" : "bg-white border-slate-200"} border-2 p-3 rounded-[3rem] flex flex-row-reverse justify-between items-center group active:scale-95 shadow-sm`}
+          className={`w-full ${theme === "dark" ? "bg-emerald-900/10 border-emerald-800" : "bg-white border-slate-200"} border-2 p-3 rounded-[3rem] flex flex-row-reverse justify-between items-center group active:scale-95 shadow-sm relative z-10`}
         >
-          <div className="bg-amber-500/10 p-3 ml-3 rounded-3xl">
-            <User size={28} className="text-amber-500" />
+          <div className="bg-amber-500/10 p-3 ml-3 rounded-3xl shrink-0">
+            <User size={28 * scaleMultiplier} className="text-amber-500" />
           </div>
           <div className="flex flex-row-reverse items-center gap-5 mr-3">
             <div>
-              <h3 className="font-black font-serif text-xl sm:text-2xl mb-1">
+              <h3
+                className="font-black font-serif mb-1"
+                style={{ fontSize: `${1.25 * scaleMultiplier}rem` }}
+              >
                 ختمتي الشخصية
               </h3>
-              <p className="text-emerald-600 text-xs sm:text-sm font-bold uppercase font-mono">
+              <p
+                className="text-emerald-600 font-bold uppercase font-mono"
+                style={{ fontSize: `${0.85 * scaleMultiplier}rem` }}
+              >
                 أنت فقط
               </p>
             </div>
-            <ChevronDown className="rotate-90 text-slate-300" />
+            <ChevronDown className="rotate-90 text-slate-300 shrink-0" />
           </div>
         </button>
 
@@ -148,29 +187,58 @@ export default function Dashboard({
 
             <div className="flex flex-row-reverse items-center gap-5 relative z-10">
               <div
-                className={`p-4 rounded-3xl ${k.is_private ? "bg-amber-500/10" : "bg-emerald-500/5"}`}
+                className={`p-4 rounded-3xl shrink-0 ${k.is_private ? "bg-amber-500/10" : "bg-emerald-500/5"}`}
               >
                 {k.is_private ? (
-                  <Lock size={28} className="text-amber-500" />
+                  <Lock
+                    size={28 * scaleMultiplier}
+                    className="text-amber-500"
+                  />
                 ) : (
-                  <Globe size={28} className="text-emerald-500" />
+                  <Globe
+                    size={28 * scaleMultiplier}
+                    className="text-emerald-500"
+                  />
                 )}
               </div>
               <div>
-                <h3 className="font-black font-serif text-xl sm:text-2xl mb-1">
+                <h3
+                  className="font-black font-serif mb-1"
+                  style={{ fontSize: `${1.25 * scaleMultiplier}rem` }}
+                >
                   {k.name}
                 </h3>
-                <p className="text-slate-500 text-xs sm:text-sm font-bold uppercase tracking-widest">
+                <p
+                  className={`font-bold uppercase tracking-widest ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}
+                  style={{ fontSize: `${0.75 * scaleMultiplier}rem` }}
+                >
                   أنشأها: {k.creator_name === userName ? "أنت" : k.creator_name}
                 </p>
+                {/* 👇 لون النسبة يتغير بناءً على الإنجاز 👇 */}
+                {k.progress > 0 && (
+                  <p
+                    className={`font-black mt-1 ${
+                      k.progress >= 95
+                        ? theme === "dark"
+                          ? "text-emerald-400"
+                          : "text-emerald-600"
+                        : theme === "dark"
+                          ? "text-slate-400"
+                          : "text-slate-500"
+                    }`}
+                    style={{ fontSize: `${0.75 * scaleMultiplier}rem` }}
+                  >
+                    إنجاز: {k.progress}%
+                  </p>
+                )}
               </div>
             </div>
-            <ChevronDown className="rotate-90 text-slate-300 relative z-10" />
+            <ChevronDown className="rotate-90 text-slate-300 relative z-10 shrink-0" />
           </button>
         ))}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-12">
-          <div className="dark:bg-emerald-900/5 bg-white border border-dashed p-7 rounded-[2.5rem] border-inherit shadow-sm">
+          <div className="dark:bg-emerald-900/5 bg-white border border-dashed p-7 rounded-[2.5rem] border-inherit shadow-sm relative z-10">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -224,7 +292,7 @@ export default function Dashboard({
             </form>
           </div>
 
-          <div className="dark:bg-emerald-900/5 bg-white border border-dashed p-7 rounded-[2.5rem] border-inherit shadow-sm">
+          <div className="dark:bg-emerald-900/5 bg-white border border-dashed p-7 rounded-[2.5rem] border-inherit shadow-sm relative z-10">
             <form
               onSubmit={(e) => {
                 e.preventDefault();

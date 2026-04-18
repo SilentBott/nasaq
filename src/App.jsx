@@ -94,8 +94,15 @@ export default function App() {
   );
 
   // استخدام الـ Hook لفصل تعقيدات الداتا بيز
-  const { currentGroup, setcurrentGroup, myGroups, logs, isOnline, fetchData } =
-    useNasaqLogic(userName, showToastMsg);
+  const {
+    currentGroup,
+    setcurrentGroup,
+    myGroups,
+    logs,
+    setLogs,
+    isOnline,
+    fetchData,
+  } = useNasaqLogic(userName, showToastMsg);
 
   // تحديث الشعلة (الستريك)
   const updateStreak = () => {
@@ -108,22 +115,77 @@ export default function App() {
     else setStreak(1);
     localStorage.setItem("nasaq-last-read", today);
   };
-
-  // الحفظ الذكي (أونلاين وأوفلاين)
+  // 👇 1. نظام الحفظ الذكي (أونلاين وأوفلاين) 👇
   const safeInsertLogs = async (inserts) => {
+    // تحديث الشاشة فوراً عشان اليوزر يشوف إنجازه اتسجل (Optimistic UI)
+    const enrichedInserts = inserts.map((i) => ({
+      ...i,
+      id: Date.now() + Math.random(),
+    }));
+    setLogs((prev) => [...prev, ...enrichedInserts]);
+
     if (navigator.onLine) {
       try {
-        const { error } = await supabase.from("nasaq_logs").insert(inserts);
+        const cleanInserts = inserts.map(({ id, ...rest }) => rest);
+        const { error } = await supabase
+          .from("nasaq_logs")
+          .insert(cleanInserts);
         if (error) throw error;
       } catch (err) {
-        showToastMsg("حدث خطأ، تأكد من الاتصال", "error");
+        saveToOfflineQueue(inserts);
       }
     } else {
-      showToastMsg("أنت غير متصل بالإنترنت الآن", "warning");
+      showToastMsg("وضع عدم الاتصال: تم حفظ قراءتك محلياً ⏳", "normal");
+      saveToOfflineQueue(inserts);
     }
     updateStreak();
   };
 
+  const saveToOfflineQueue = (inserts) => {
+    const pending = JSON.parse(
+      localStorage.getItem("nasaq_pending_logs") || "[]",
+    );
+    pending.push(...inserts);
+    localStorage.setItem("nasaq_pending_logs", JSON.stringify(pending));
+  };
+
+  // 👇 2. دالة المزامنة التلقائية (بتشتغل أول ما النت يرجع) 👇
+  const syncOfflineLogs = useCallback(async () => {
+    if (!navigator.onLine) return;
+    const pending = JSON.parse(
+      localStorage.getItem("nasaq_pending_logs") || "[]",
+    );
+    if (pending.length === 0) return;
+
+    try {
+      const cleanInserts = pending.map(({ id, ...rest }) => rest);
+      const { error } = await supabase.from("nasaq_logs").insert(cleanInserts);
+      if (!error) {
+        localStorage.removeItem("nasaq_pending_logs");
+        showToastMsg("تمت مزامنة قراءاتك السابقة بنجاح! 🌍", "success");
+        fetchData();
+      }
+    } catch (err) {
+      console.error("Sync Error", err);
+    }
+  }, [fetchData, showToastMsg]);
+
+  // 👇 3. تشغيل المزامنة تلقائياً 👇
+  useEffect(() => {
+    window.addEventListener("online", syncOfflineLogs);
+    if (navigator.onLine) syncOfflineLogs(); // لو فتحت التطبيق والنت شغال هيرفع اللي فات
+    return () => window.removeEventListener("online", syncOfflineLogs);
+  }, [syncOfflineLogs]);
+  useEffect(() => {
+    const handleGlobalKey = (e) => {
+      if (e.key === "/" && e.target.tagName !== "INPUT") {
+        e.preventDefault();
+        setQuickRegister(true);
+      }
+    };
+    window.addEventListener("keydown", handleGlobalKey);
+    return () => window.removeEventListener("keydown", handleGlobalKey);
+  }, []);
   // حساب الآيات الفريدة
   const getUniqueVersesCount = (surahLogs) => {
     if (!surahLogs || !Array.isArray(surahLogs)) return 0;
@@ -595,48 +657,88 @@ export default function App() {
           )}
 
           {(selected || quickRegister) && (
-            <KhatmahModal 
-              selected={selected} 
-              setSelected={setSelected} 
+            <KhatmahModal
+              selected={selected}
+              setSelected={setSelected}
               quickRegister={quickRegister}
               setQuickRegister={setQuickRegister}
-              logs={logs} 
+              logs={logs}
               currentGroup={currentGroup}
               userName={userName}
-              vRanges={vRanges} 
-              setVRanges={setVRanges} 
+              vRanges={vRanges}
+              setVRanges={setVRanges}
               loading={loading}
               getOccupiedVerses={(id) => {
                 const occ = new Set();
-                (logs || []).filter((l) => l.surah_id === id).forEach((log) => {
-                  for (let i = log.verse_start; i <= log.verse_end; i++) occ.add(i);
-                });
+                (logs || [])
+                  .filter((l) => l.surah_id === id)
+                  .forEach((log) => {
+                    for (let i = log.verse_start; i <= log.verse_end; i++)
+                      occ.add(i);
+                  });
                 return occ;
               }}
               openModal={openModal}
               onClaim={async () => {
                 setLoading(true);
-                const active = vRanges.filter(r => r.isActive && !r.isSaved && r.start > 0 && r.end > 0);
-                const inserts = active.map(r => ({ surah_id: selected?.id, user_name: userName, status: "reading", verse_start: r.start, verse_end: r.end, group_id: currentGroup?.id || null }));
-                if (inserts.length > 0) { await safeInsertLogs(inserts); await fetchData(); }
-                setLoading(false); setSelected(null); setQuickRegister(false);
+                const active = vRanges.filter(
+                  (r) => r.isActive && !r.isSaved && r.start > 0 && r.end > 0,
+                );
+                const inserts = active.map((r) => ({
+                  surah_id: selected?.id,
+                  user_name: userName,
+                  status: "reading",
+                  verse_start: r.start,
+                  verse_end: r.end,
+                  group_id: currentGroup?.id || null,
+                }));
+                if (inserts.length > 0) {
+                  await safeInsertLogs(inserts);
+                  await fetchData();
+                }
+                setLoading(false);
+                setSelected(null);
+                setQuickRegister(false);
               }}
               onMultiClaim={async (inserts) => {
                 setLoading(true);
-                const enriched = inserts.map(i => ({ ...i, user_name: userName, status: "reading", group_id: currentGroup?.id || null }));
-                if (enriched.length > 0) { await safeInsertLogs(enriched); await fetchData(); showToastMsg("تم الورد بنجاح! 🌟", "success"); }
-                setLoading(false); setSelected(null); setQuickRegister(false);
+                const enriched = inserts.map((i) => ({
+                  ...i,
+                  user_name: userName,
+                  status: "reading",
+                  group_id: currentGroup?.id || null,
+                }));
+                if (enriched.length > 0) {
+                  await safeInsertLogs(enriched);
+                  await fetchData();
+                  showToastMsg("تم الورد بنجاح! 🌟", "success");
+                }
+                setLoading(false);
+                setSelected(null);
+                setQuickRegister(false);
               }}
               onDeleteAll={async () => {
-                if (!navigator.onLine) return showToastMsg("يحتاج إلى إنترنت", "warning");
+                if (!navigator.onLine)
+                  return showToastMsg("يحتاج إلى إنترنت", "warning");
                 if (window.confirm("حذف كل قراءاتك في هذه السورة؟")) {
-                  let query = supabase.from("nasaq_logs").delete().eq("surah_id", selected?.id).eq("user_name", userName);
-                  if (currentGroup && currentGroup.id) query = query.eq("group_id", currentGroup.id); else query = query.is("group_id", null);
-                  await query; await fetchData(); setSelected(null);
+                  let query = supabase
+                    .from("nasaq_logs")
+                    .delete()
+                    .eq("surah_id", selected?.id)
+                    .eq("user_name", userName);
+                  if (currentGroup && currentGroup.id)
+                    query = query.eq("group_id", currentGroup.id);
+                  else query = query.is("group_id", null);
+                  await query;
+                  await fetchData();
+                  setSelected(null);
                 }
               }}
               onDeleteRange={async (id) => {
-                if (id) { await supabase.from("nasaq_logs").delete().eq("id", id); await fetchData(); }
+                if (id) {
+                  await supabase.from("nasaq_logs").delete().eq("id", id);
+                  await fetchData();
+                }
               }}
             />
           )}

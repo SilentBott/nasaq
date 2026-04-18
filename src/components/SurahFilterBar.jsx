@@ -6,9 +6,9 @@ export default function SurahFilterBar({
 }) {
   const filters = [
     { id: "all", label: "كلّ السور" },
-    { id: "mine", label: "لم ننهها" },
     { id: "remaining", label: "باقي السور" },
-    { id: "completed", label: "أُنهت" },
+    { id: "mine", label: "سور بدأتها ولم تنهها" },
+    { id: "completed", label: "سور أُنهت" },
   ];
 
   return (
@@ -26,7 +26,7 @@ export default function SurahFilterBar({
       </div>
       <button
         onClick={onQuickRegister}
-        className={`font-black border-b-[3px] sm:border-b-4 pb-1 active:scale-95 transition-all text-xl sm:text-2xl whitespace-nowrap ${theme === "dark" ? "text-emerald-400 border-emerald-400" : "text-emerald-700 border-emerald-700"}`}
+        className={`m-1 font-black border-b-[3px] sm:border-b-4 pb-1 active:scale-95 transition-all text-xl sm:text-2xl whitespace-nowrap ${theme === "dark" ? "text-emerald-400 border-emerald-400" : "text-emerald-700 border-emerald-700"}`}
       >
         تسجيل سريع
       </button>
