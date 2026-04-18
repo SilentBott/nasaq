@@ -107,22 +107,62 @@ export default function App() {
   // تحديث الشعلة (الستريك)
   const updateStreak = () => {
     const today = new Date().toDateString();
-    const lastRead = localStorage.getItem("nasaq-last-read");
-    if (lastRead === today) return;
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    if (lastRead === yesterday.toDateString()) setStreak((p) => p + 1);
-    else setStreak(1);
-    localStorage.setItem("nasaq-last-read", today);
+    const lastReadDate = localStorage.getItem("nasaq_last_read_date");
+
+    // استخدمنا نفس الاسم بتاعك بالظبط "nasaq-streak"
+    let currentStreak = parseInt(
+      localStorage.getItem("nasaq-streak") || "0",
+      10,
+    );
+
+    if (lastReadDate === today) {
+      // قرأ بالفعل النهارده، مفيش داعي نزود الستريك تاني
+      return;
+    }
+
+    if (lastReadDate) {
+      const lastDate = new Date(lastReadDate);
+      const currentDate = new Date(today);
+
+      const diffTime = Math.abs(currentDate - lastDate);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 1) {
+        // قرأ امبارح والنهارده.. بطل كمل السلسلة
+        currentStreak += 1;
+      } else if (diffDays > 1) {
+        // فوت يوم أو أكتر.. الستريك يقع ويرجع 1
+        currentStreak = 1;
+      }
+    } else {
+      // أول مرة يقرأ خالص
+      currentStreak = 1;
+    }
+
+    // 1. احفظ في الكاش عشان لو قفل المتصفح
+    localStorage.setItem("nasaq-streak", currentStreak.toString());
+    localStorage.setItem("nasaq_last_read_date", today);
+
+    // 2. حدث الواجهة (React State) عشان الرقم يتغير قدام عينه فوراً 🔥
+    setStreak(currentStreak);
   };
   // 👇 1. نظام الحفظ الذكي (أونلاين وأوفلاين) 👇
   const safeInsertLogs = async (inserts) => {
-    // تحديث الشاشة فوراً عشان اليوزر يشوف إنجازه اتسجل (Optimistic UI)
     const enrichedInserts = inserts.map((i) => ({
       ...i,
       id: Date.now() + Math.random(),
     }));
-    setLogs((prev) => [...prev, ...enrichedInserts]);
+
+    // تحديث الشاشة + تحديث الكاش الأساسي عشان لو عمل ريفريش الآيات متطيرش
+    setLogs((prev) => {
+      const newLogs = [...prev, ...enrichedInserts];
+      const cacheKey =
+        currentGroup && currentGroup.id
+          ? `nasaq_logs_${currentGroup.id}`
+          : `nasaq_logs_${userName}`;
+      localStorage.setItem(cacheKey, JSON.stringify(newLogs));
+      return newLogs;
+    });
 
     if (navigator.onLine) {
       try {
@@ -130,7 +170,7 @@ export default function App() {
         const { error } = await supabase
           .from("nasaq_logs")
           .insert(cleanInserts);
-        if (error) throw error;
+        if (error) throw error; // لازم نرمي الإيرور لو حصل عشان يروح للـ catch
       } catch (err) {
         saveToOfflineQueue(inserts);
       }
@@ -142,11 +182,15 @@ export default function App() {
   };
 
   const saveToOfflineQueue = (inserts) => {
-    const pending = JSON.parse(
-      localStorage.getItem("nasaq_pending_logs") || "[]",
-    );
-    pending.push(...inserts);
-    localStorage.setItem("nasaq_pending_logs", JSON.stringify(pending));
+    try {
+      const pending = JSON.parse(
+        localStorage.getItem("nasaq_pending_logs") || "[]",
+      );
+      pending.push(...inserts);
+      localStorage.setItem("nasaq_pending_logs", JSON.stringify(pending));
+    } catch (e) {
+      console.error("Error saving to offline queue", e);
+    }
   };
 
   // 👇 2. دالة المزامنة التلقائية (بتشتغل أول ما النت يرجع) 👇

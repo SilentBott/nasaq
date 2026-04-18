@@ -8,7 +8,18 @@ export function useNasaqLogic(userName, showToastMsg) {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [loading, setLoading] = useState(false);
 
-  // 1. جلب المجموعات مع نظام الكاش الأوفلاين
+  // تحديث حالة الإنترنت
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
   const fetchGroups = useCallback(async () => {
     if (!userName) return;
     try {
@@ -19,15 +30,22 @@ export function useNasaqLogic(userName, showToastMsg) {
           .eq("user_name", userName),
         supabase.from("groups").select("*").eq("creator_name", userName),
       ]);
+
+      // 👇 السر هنا: لو Supabase رجع خطأ، لازم نرميه عشان نروح للـ Catch والكاش ميمسحش
+      if (membersRes.error) throw membersRes.error;
+      if (createdGroupsRes.error) throw createdGroupsRes.error;
+
       const ids = (membersRes.data || []).map((m) => m.group_id);
       let joinedGroups = [];
       if (ids.length > 0) {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("groups")
           .select("*")
           .in("id", ids);
+        if (error) throw error;
         joinedGroups = data || [];
       }
+
       const allGroups = [...(createdGroupsRes.data || []), ...joinedGroups];
       const uniqueGroups = Array.from(
         new Map(allGroups.map((item) => [item.id, item])).values(),
@@ -40,20 +58,20 @@ export function useNasaqLogic(userName, showToastMsg) {
       localStorage.setItem(
         `nasaq_groups_${userName}`,
         JSON.stringify(uniqueGroups),
-      ); // 👈 حفظ للذاكرة
+      );
     } catch (err) {
       console.warn("Offline Mode: Loading Groups from Cache");
       const cached = localStorage.getItem(`nasaq_groups_${userName}`);
-      if (cached) setMyGroups(JSON.parse(cached)); // 👈 استرجاع عند انقطاع النت
+      if (cached) setMyGroups(JSON.parse(cached));
     }
   }, [userName]);
 
-  // 2. جلب القراءات مع نظام الكاش
   const fetchLogs = useCallback(async () => {
     if (!userName) return;
-    const cacheKey = currentGroup
-      ? `nasaq_logs_${currentGroup.id}`
-      : `nasaq_logs_${userName}`;
+    const cacheKey =
+      currentGroup && currentGroup.id
+        ? `nasaq_logs_${currentGroup.id}`
+        : `nasaq_logs_${userName}`;
 
     try {
       let query = supabase
@@ -64,13 +82,17 @@ export function useNasaqLogic(userName, showToastMsg) {
         query = query.eq("group_id", currentGroup.id);
       else query = query.is("group_id", null).eq("user_name", userName);
 
-      const { data } = await query;
+      const { data, error } = await query;
+
+      // 👇 السر هنا: لازم نرمي الإيرور عشان الكود ميكملش ويمسح الكاش بمصفوفة فاضية
+      if (error) throw error;
+
       setLogs(data || []);
-      localStorage.setItem(cacheKey, JSON.stringify(data || [])); // 👈 حفظ للذاكرة
+      localStorage.setItem(cacheKey, JSON.stringify(data || []));
     } catch (err) {
       console.warn("Offline Mode: Loading Logs from Cache");
       const cached = localStorage.getItem(cacheKey);
-      if (cached) setLogs(JSON.parse(cached)); // 👈 استرجاع عند انقطاع النت
+      if (cached) setLogs(JSON.parse(cached));
     }
   }, [userName, currentGroup]);
 
@@ -82,54 +104,6 @@ export function useNasaqLogic(userName, showToastMsg) {
   useEffect(() => {
     if (userName) fetchData();
   }, [userName, currentGroup, fetchData]);
-
-  // معالج روابط الدعوة
-  useEffect(() => {
-    if (!userName) return;
-    const processInvite = async () => {
-      const url = new URL(window.location.href);
-      const inviteName = url.searchParams.get("invite");
-      const inviteCode = url.searchParams.get("code");
-      if (inviteName) {
-        try {
-          const { data: groupData } = await supabase
-            .from("groups")
-            .select("*")
-            .eq("name", inviteName)
-            .limit(1)
-            .maybeSingle();
-          if (groupData) {
-            if (groupData.is_private && groupData.invite_code !== inviteCode) {
-              showToastMsg("رابط الدعوة غير صالح أو انتهى ❌", "error");
-            } else {
-              const { data: memberCheck } = await supabase
-                .from("group_members")
-                .select("*")
-                .eq("group_id", groupData.id)
-                .eq("user_name", userName)
-                .maybeSingle();
-              if (!memberCheck) {
-                await supabase
-                  .from("group_members")
-                  .insert([{ group_id: groupData.id, user_name: userName }]);
-                showToastMsg(`مرحباً بك في "${groupData.name}" 🎉`, "success");
-              }
-              setcurrentGroup(groupData);
-              fetchData();
-            }
-          }
-        } catch (e) {
-          console.error(e);
-        }
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname,
-        );
-      }
-    };
-    processInvite();
-  }, [userName, fetchData, showToastMsg]);
 
   return {
     myGroups,

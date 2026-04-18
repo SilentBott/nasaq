@@ -5,10 +5,10 @@ export default function SurahFilterBar({
   onQuickRegister,
 }) {
   const filters = [
-    { id: "all", label: "كلّ السور" },
-    { id: "remaining", label: "باقي السور" },
-    { id: "mine", label: "سور بدأتها ولم تنهها" },
-    { id: "completed", label: "سور أُنهت" },
+    { id: "all", label: "كُلّ السور" },
+    { id: "remaining", label: "المتبقية" },
+    { id: "mine", label: "بدأتُ فيها" },
+    { id: "completed", label: "أنهيتها" },
   ];
 
   return (
