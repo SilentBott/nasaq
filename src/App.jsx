@@ -153,31 +153,36 @@ export default function App() {
       id: Date.now() + Math.random(),
     }));
 
-    // تحديث الشاشة + تحديث الكاش الأساسي عشان لو عمل ريفريش الآيات متطيرش
-    setLogs((prev) => {
-      const newLogs = [...prev, ...enrichedInserts];
-      const cacheKey =
-        currentGroup && currentGroup.id
-          ? `nasaq_logs_${currentGroup.id}`
-          : `nasaq_logs_${userName}`;
-      localStorage.setItem(cacheKey, JSON.stringify(newLogs));
-      return newLogs;
-    });
-
     if (navigator.onLine) {
+      // لو أونلاين: حدث الشاشة، ارفع للسيرفر، ولو فشل حطه في الطابور
+      setLogs((prev) => [...prev, ...enrichedInserts]);
       try {
-        const cleanInserts = inserts.map(({ id, ...rest }) => rest);
+        const cleanInserts = enrichedInserts.map(({ id, ...rest }) => rest);
         const { error } = await supabase
           .from("nasaq_logs")
           .insert(cleanInserts);
-        if (error) throw error; // لازم نرمي الإيرور لو حصل عشان يروح للـ catch
-      } catch (err) {
-        saveToOfflineQueue(inserts);
+        if (error) throw error;
+        // لو الرفع نجح، هات الداتا النظيفة من السيرفر
+        fetchData();
+      } catch (e) {
+        const pending = JSON.parse(
+          localStorage.getItem("nasaq_pending_logs") || "[]",
+        );
+        pending.push(...enrichedInserts);
+        localStorage.setItem("nasaq_pending_logs", JSON.stringify(pending));
       }
     } else {
+      // لو أوفلاين: حط في الطابور، وحدث الشاشة فوراً
+      const pending = JSON.parse(
+        localStorage.getItem("nasaq_pending_logs") || "[]",
+      );
+      pending.push(...enrichedInserts);
+      localStorage.setItem("nasaq_pending_logs", JSON.stringify(pending));
+
+      setLogs((prev) => [...prev, ...enrichedInserts]);
       showToastMsg("وضع عدم الاتصال: تم حفظ قراءتك محلياً ⏳", "normal");
-      saveToOfflineQueue(inserts);
     }
+
     updateStreak();
   };
 
