@@ -8,7 +8,6 @@ export function useNasaqLogic(userName, showToastMsg) {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [loading, setLoading] = useState(false);
 
-  // تحديث حالة الإنترنت
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
@@ -22,6 +21,17 @@ export function useNasaqLogic(userName, showToastMsg) {
 
   const fetchGroups = useCallback(async () => {
     if (!userName) return;
+
+    // 1. حماية الكاش: نقرأه دايماً الأول
+    const cachedStr = localStorage.getItem(`nasaq_groups_${userName}`);
+    const cachedData = cachedStr ? JSON.parse(cachedStr) : [];
+
+    // 2. البلوك السحري: لو أوفلاين مفيش أي اتصال بالسيرفر عشان ميمسحش الداتا
+    if (!navigator.onLine) {
+      if (cachedData.length > 0) setMyGroups(cachedData);
+      return;
+    }
+
     try {
       const [membersRes, createdGroupsRes] = await Promise.all([
         supabase
@@ -31,7 +41,6 @@ export function useNasaqLogic(userName, showToastMsg) {
         supabase.from("groups").select("*").eq("creator_name", userName),
       ]);
 
-      // 👇 السر هنا: لو Supabase رجع خطأ، لازم نرميه عشان نروح للـ Catch والكاش ميمسحش
       if (membersRes.error) throw membersRes.error;
       if (createdGroupsRes.error) throw createdGroupsRes.error;
 
@@ -60,9 +69,7 @@ export function useNasaqLogic(userName, showToastMsg) {
         JSON.stringify(uniqueGroups),
       );
     } catch (err) {
-      console.warn("Offline Mode: Loading Groups from Cache");
-      const cached = localStorage.getItem(`nasaq_groups_${userName}`);
-      if (cached) setMyGroups(JSON.parse(cached));
+      if (cachedData.length > 0) setMyGroups(cachedData);
     }
   }, [userName]);
 
@@ -72,6 +79,16 @@ export function useNasaqLogic(userName, showToastMsg) {
       currentGroup && currentGroup.id
         ? `nasaq_logs_${currentGroup.id}`
         : `nasaq_logs_${userName}`;
+
+    // 1. قراءة الكاش اللي لسه متحدث من زرار (تأكيد الورد)
+    const cachedStr = localStorage.getItem(cacheKey);
+    const cachedData = cachedStr ? JSON.parse(cachedStr) : [];
+
+    // 2. جدار الحماية: لو أوفلاين نعرض الكاش فوراً ونمنع السيرفر يمسحه!
+    if (!navigator.onLine) {
+      setLogs(cachedData);
+      return;
+    }
 
     try {
       let query = supabase
@@ -84,15 +101,25 @@ export function useNasaqLogic(userName, showToastMsg) {
 
       const { data, error } = await query;
 
-      // 👇 السر هنا: لازم نرمي الإيرور عشان الكود ميكملش ويمسح الكاش بمصفوفة فاضية
+      // تأمين إضافي: لو السيرفر رجع غلط، ارمي إيرور عشان ميمسحش الكاش
       if (error) throw error;
+      if (!data) throw new Error("No data");
 
-      setLogs(data || []);
-      localStorage.setItem(cacheKey, JSON.stringify(data || []));
+      const pending = JSON.parse(
+        localStorage.getItem("nasaq_pending_logs") || "[]",
+      );
+      const relevantPending = pending.filter((p) =>
+        currentGroup && currentGroup.id
+          ? p.group_id === currentGroup.id
+          : p.group_id === null && p.user_name === userName,
+      );
+
+      // دمج داتا السيرفر مع المتأخر في الكاش
+      const mergedData = [...data, ...relevantPending];
+      setLogs(mergedData);
+      localStorage.setItem(cacheKey, JSON.stringify(mergedData));
     } catch (err) {
-      console.warn("Offline Mode: Loading Logs from Cache");
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) setLogs(JSON.parse(cached));
+      setLogs(cachedData);
     }
   }, [userName, currentGroup]);
 
@@ -100,6 +127,38 @@ export function useNasaqLogic(userName, showToastMsg) {
     await fetchGroups();
     await fetchLogs();
   }, [fetchGroups, fetchLogs]);
+
+  // دالة المزامنة: بترفع الآيات اللي متسجلة أوفلاين بمجرد ما النت يرجع
+  useEffect(() => {
+    const syncPendingLogs = async () => {
+      // لازم يكون الأونلاين اشتغل فعلياً
+      if (isOnline && navigator.onLine) {
+        const pending = JSON.parse(
+          localStorage.getItem("nasaq_pending_logs") || "[]",
+        );
+        if (pending.length > 0) {
+          try {
+            const cleanInserts = pending.map(({ id, ...rest }) => rest);
+            const { error } = await supabase
+              .from("nasaq_logs")
+              .insert(cleanInserts);
+            if (!error) {
+              localStorage.setItem("nasaq_pending_logs", "[]");
+              fetchData();
+              if (showToastMsg)
+                showToastMsg("تمت مزامنة قراءاتك السابقة بنجاح ☁️", "success");
+            }
+          } catch (e) {
+            console.error("Sync error", e);
+          }
+        }
+      }
+    };
+
+    // بندي المتصفح ثانية يتأكد إن النت استقر قبل الرفع
+    const timer = setTimeout(syncPendingLogs, 1500);
+    return () => clearTimeout(timer);
+  }, [isOnline, fetchData]);
 
   useEffect(() => {
     if (userName) fetchData();
