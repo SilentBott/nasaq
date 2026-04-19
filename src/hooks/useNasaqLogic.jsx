@@ -21,12 +21,9 @@ export function useNasaqLogic(userName, showToastMsg) {
 
   const fetchGroups = useCallback(async () => {
     if (!userName) return;
-
-    // 1. حماية الكاش: نقرأه دايماً الأول
     const cachedStr = localStorage.getItem(`nasaq_groups_${userName}`);
     const cachedData = cachedStr ? JSON.parse(cachedStr) : [];
 
-    // 2. البلوك السحري: لو أوفلاين مفيش أي اتصال بالسيرفر عشان ميمسحش الداتا
     if (!navigator.onLine) {
       if (cachedData.length > 0) setMyGroups(cachedData);
       return;
@@ -80,47 +77,44 @@ export function useNasaqLogic(userName, showToastMsg) {
         ? `nasaq_logs_${currentGroup.id}`
         : `nasaq_logs_${userName}`;
 
-    // 1. قراءة الكاش اللي لسه متحدث من زرار (تأكيد الورد)
+    // 1. الداتا الموثوقة من السيرفر (فقط)
     const cachedStr = localStorage.getItem(cacheKey);
-    const cachedData = cachedStr ? JSON.parse(cachedStr) : [];
+    let serverData = cachedStr ? JSON.parse(cachedStr) : [];
 
-    // 2. جدار الحماية: لو أوفلاين نعرض الكاش فوراً ونمنع السيرفر يمسحه!
-    if (!navigator.onLine) {
-      setLogs(cachedData);
-      return;
+    // 2. تحديث الداتا لو النت شغال
+    if (navigator.onLine) {
+      try {
+        let query = supabase
+          .from("nasaq_logs")
+          .select("*")
+          .order("created_at", { ascending: true });
+        if (currentGroup && currentGroup.id)
+          query = query.eq("group_id", currentGroup.id);
+        else query = query.is("group_id", null).eq("user_name", userName);
+
+        const { data, error } = await query;
+        if (error) throw error;
+        if (data) {
+          serverData = data;
+          localStorage.setItem(cacheKey, JSON.stringify(serverData)); // تحديث كاش السيرفر
+        }
+      } catch (err) {
+        console.warn("Offline or fetch failed, using cache.");
+      }
     }
 
-    try {
-      let query = supabase
-        .from("nasaq_logs")
-        .select("*")
-        .order("created_at", { ascending: true });
-      if (currentGroup && currentGroup.id)
-        query = query.eq("group_id", currentGroup.id);
-      else query = query.is("group_id", null).eq("user_name", userName);
+    // 3. دمج داتا السيرفر مع داتا الأوفلاين اللي لسه في الطابور
+    const pending = JSON.parse(
+      localStorage.getItem("nasaq_pending_logs") || "[]",
+    );
+    const relevantPending = pending.filter((p) =>
+      currentGroup && currentGroup.id
+        ? p.group_id === currentGroup.id
+        : p.group_id === null && p.user_name === userName,
+    );
 
-      const { data, error } = await query;
-
-      // تأمين إضافي: لو السيرفر رجع غلط، ارمي إيرور عشان ميمسحش الكاش
-      if (error) throw error;
-      if (!data) throw new Error("No data");
-
-      const pending = JSON.parse(
-        localStorage.getItem("nasaq_pending_logs") || "[]",
-      );
-      const relevantPending = pending.filter((p) =>
-        currentGroup && currentGroup.id
-          ? p.group_id === currentGroup.id
-          : p.group_id === null && p.user_name === userName,
-      );
-
-      // دمج داتا السيرفر مع المتأخر في الكاش
-      const mergedData = [...data, ...relevantPending];
-      setLogs(mergedData);
-      localStorage.setItem(cacheKey, JSON.stringify(mergedData));
-    } catch (err) {
-      setLogs(cachedData);
-    }
+    // الشاشة دايماً هتعرض المجموع الصافي للاتنين!
+    setLogs([...serverData, ...relevantPending]);
   }, [userName, currentGroup]);
 
   const fetchData = useCallback(async () => {
@@ -128,10 +122,9 @@ export function useNasaqLogic(userName, showToastMsg) {
     await fetchLogs();
   }, [fetchGroups, fetchLogs]);
 
-  // دالة المزامنة: بترفع الآيات اللي متسجلة أوفلاين بمجرد ما النت يرجع
+  // دالة المزامنة الأوتوماتيكية
   useEffect(() => {
     const syncPendingLogs = async () => {
-      // لازم يكون الأونلاين اشتغل فعلياً
       if (isOnline && navigator.onLine) {
         const pending = JSON.parse(
           localStorage.getItem("nasaq_pending_logs") || "[]",
@@ -143,8 +136,8 @@ export function useNasaqLogic(userName, showToastMsg) {
               .from("nasaq_logs")
               .insert(cleanInserts);
             if (!error) {
-              localStorage.setItem("nasaq_pending_logs", "[]");
-              fetchData();
+              localStorage.setItem("nasaq_pending_logs", "[]"); // تفريغ الطابور
+              fetchData(); // جلب الداتا المحدثة من السيرفر
               if (showToastMsg)
                 showToastMsg("تمت مزامنة قراءاتك السابقة بنجاح ☁️", "success");
             }
@@ -155,7 +148,6 @@ export function useNasaqLogic(userName, showToastMsg) {
       }
     };
 
-    // بندي المتصفح ثانية يتأكد إن النت استقر قبل الرفع
     const timer = setTimeout(syncPendingLogs, 1500);
     return () => clearTimeout(timer);
   }, [isOnline, fetchData]);
